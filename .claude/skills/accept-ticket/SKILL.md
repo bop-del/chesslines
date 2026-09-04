@@ -175,7 +175,7 @@ whether to move the card to `Done`.
 On yes:
 
 - Move the card (`docs/agents/issue-tracker.md` has the ids; `Done` is
-  the `Done` option id).
+  `bafab4de`).
 - Confirm the issue closed — a commit with `Closes #n` will have done it
   already. Check rather than assume.
 - Comment the manual results on the issue: each test and its verdict, and

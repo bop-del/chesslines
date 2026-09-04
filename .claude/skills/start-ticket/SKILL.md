@@ -59,7 +59,7 @@ or would strand work. Report and let Boris resolve it.
 
 ## 3. Claim the card
 
-Move it to `In progress` — option id and mechanics in
+Move it to `In progress` — option id `a12534d4`, mechanics and field ids in
 `docs/agents/issue-tracker.md`. This is the first write, before any git
 command.
 
