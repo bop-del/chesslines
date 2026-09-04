@@ -1,6 +1,6 @@
 // Verification run: serve, load, check, screenshot.
 //
-// Dev-only. Nothing here ships — see docs/adr/0004-dev-dependencies.md.
+// Dev-only. Nothing here ships — see docs/adr/0005-dev-dependencies.md.
 //
 //   node scripts/verify.mjs
 //
@@ -64,7 +64,7 @@ const reset = (page) => page.evaluate(() => {
 const square = (page, name) => page.locator(`.square[data-square="${name}"]`);
 
 // Tap a square. Named for what the user does, since there is no drag by
-// design — see ADR 0003.
+// design — see ADR 0003 (a hand-written board).
 const tap = (page, name) => square(page, name).click();
 
 function assert(condition, message) {
@@ -292,7 +292,7 @@ const checks = [
 // `touch-action`, the long-press callout, or rubber-band scrolling — caniuse
 // marks touch-action "not applicable" on desktop Safari. Those defenses are in
 // css/board.css and are structurally unverifiable here. A real device is the
-// only proof. See docs/adr/0005-ios-is-the-target.md.
+// only proof. See docs/adr/0006-ios-is-the-target.md.
 
 const ENGINES = [
     { name: 'chromium', launch: chromium, screenshots: true },
