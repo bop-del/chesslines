@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+
+# Open chesslines in Claude Code with the engineering skills loaded.
+# Usage: cc-chesslines [claude arguments...]
+#
+# Sourced by the cc-chesslines shell function in ~/.zshrc, so that the `cd`
+# survives Claude exiting. Also runnable directly (./bin/cc-chesslines), in which
+# case the cd applies only to the subshell.
+
+REPO="$HOME/code/chesslines"
+SKILLS="$HOME/code/mattpocock-skills"
+
+if ! cd "$REPO"; then
+  echo "✗ $REPO not found"
+  # `return` when sourced, `exit` when run directly — exit would close the shell.
+  return 1 2>/dev/null || exit 1
+fi
+
+# GitHub account — bop-del, not the HeyJobs one
+if command -v gh > /dev/null 2>&1; then
+  GH_USER=$(gh api user --jq .login 2>/dev/null)
+  case "$GH_USER" in
+    bop-del) echo "  ✓ GitHub: bop-del" ;;
+    "")      echo "  ⚠ GitHub not logged in — 'gh auth login'" ;;
+    *)       echo "  ⚠ GitHub account is '$GH_USER' — 'gh auth switch --user bop-del'" ;;
+  esac
+else
+  echo "  ⚠ gh CLI missing — the issue skills will not work"
+fi
+
+# Engineering skills as a plugin (Matt Pocock)
+if [ -d "$SKILLS/.claude-plugin" ]; then
+  echo "  ✓ Skills: mattpocock-skills"
+  set -- --plugin-dir "$SKILLS" "$@"
+else
+  echo "  ⚠ Skills repo missing: $SKILLS"
+  echo "    git clone https://github.com/mattpocock/skills.git $SKILLS"
+fi
+
+echo ""
+
+# `command claude`, not `exec` — this file is sourced, and exec would replace
+# the interactive shell instead of returning to it.
+command claude "$@"
