@@ -1,0 +1,151 @@
+/* The board.
+ *
+ * The iOS defenses here are not speculative — they come from the bootstrap
+ * research (docs/research/library-research.md), and most of them guard against
+ * things the verification run structurally cannot see. `touch-action` is marked
+ * "not applicable" on desktop Safari, so a bug in it is invisible to Playwright
+ * on both engines. Do not remove one because "the checks still pass": the
+ * checks cannot fail on these. A real phone is the only proof. */
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    /* Rows must be 1fr of the *board*, not auto-sized to content, or the
+     * squares end up rectangular while the container still reports square —
+     * which is exactly what the first screenshot showed, with every check
+     * passing. `aspect-ratio` governs the box; this governs the cells. */
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    aspect-ratio: 1;
+
+    /* svh, not vh: the dynamic viewport unit that excludes the URL bar, so the
+     * board is never clipped by Safari's chrome. iOS 15.4+.
+     *
+     * The 8rem reserve is the title, the credits and the body padding. It was
+     * 12rem, which cost ~2px per square — and at 375px wide that pushed squares
+     * under Apple's 44px touch minimum. Squares this small are a mis-tap
+     * machine for a child, so the reserve is kept as tight as the layout
+     * allows. */
+    width: min(100%, 100svh - 8rem);
+    max-width: 40rem;
+    margin: 0 auto;
+
+    border: 2px solid var(--edge);
+    border-radius: 4px;
+    /* No overflow:hidden — it clipped the coordinate labels against the
+     * border. The squares fill the grid exactly, so nothing needs clipping. */
+
+    /* No long-press "Save Image" sheet on a piece. iOS-only; ignored elsewhere,
+     * including desktop Safari — which is why this cannot be verified here. */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    /* No grey flash on tap. */
+    -webkit-tap-highlight-color: transparent;
+}
+
+.board.flipped {
+    transform: rotate(180deg);
+}
+
+.board.flipped .piece {
+    /* Counter-rotate, or Black's pieces render upside down. */
+    transform: rotate(180deg);
+}
+
+.square {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* A tap lands on the square, never on a text selection inside it. */
+    cursor: pointer;
+    -webkit-user-drag: none;
+}
+
+.square.light { background: var(--square-light); }
+.square.dark  { background: var(--square-dark); }
+
+.piece {
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* taps belong to the square, not the artwork */
+    -webkit-user-drag: none;
+}
+
+/* ── Selection and targets ───────────────────────────────────────────────────
+ * Targets are rendered as a dot rather than a full-square tint so the piece
+ * underneath stays readable — it matters on a phone, where the board is small
+ * and a child is looking for "where can this go?". */
+
+.square.selected {
+    background: var(--square-selected);
+}
+
+.square.target::after,
+.square.capture::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.square.target::after {
+    width: 30%;
+    height: 30%;
+    background: var(--marker);
+}
+
+/* A capture reads as a ring around the piece, not a dot on top of it. */
+.square.capture::after {
+    inset: 6%;
+    border: 0.35rem solid var(--marker);
+    background: none;
+}
+
+.square.hint { background: var(--square-hint); }
+.square.wrong { background: var(--square-wrong); }
+
+/* ── Coordinates ─────────────────────────────────────────────────────────────
+ * Naming squares is part of learning chess, so the labels earn their space. */
+
+/* a1 carries both a rank and a file label, so they need separate boxes:
+ * ::before for the rank up the left edge, ::after for the file along the
+ * bottom. ::after is already spoken for on target squares — but a square can
+ * never be both a move target and unoccupied edge scenery at the same moment,
+ * and the target rule comes later in the cascade, so it wins when it matters. */
+
+.board.coords .square[data-rank]::before,
+.board.coords .square[data-file]::after {
+    position: absolute;
+    font-size: min(0.6rem, 2.2vw);
+    font-weight: 600;
+    opacity: 0.5;
+    pointer-events: none;
+    line-height: 1;
+}
+
+.board.coords .square[data-rank]::before {
+    content: attr(data-rank);
+    top: 2px;
+    left: 2px;
+}
+
+.board.coords .square[data-file]::after {
+    content: attr(data-file);
+    bottom: 3px;
+    right: 4px;
+    /* Reset the dot geometry the target rules would otherwise impose. */
+    width: auto;
+    height: auto;
+    background: none;
+    border: none;
+    border-radius: 0;
+    inset: auto 4px 3px auto;
+}
+
+/* The board is rotated when playing Black, so the labels would be upside
+ * down. Counter-rotate them the way the pieces are counter-rotated. */
+.board.flipped.coords .square[data-rank]::before,
+.board.flipped.coords .square[data-file]::after {
+    transform: rotate(180deg);
+}

@@ -1,0 +1,145 @@
+/* Base: tokens, resets, and the page frame.
+ *
+ * Colours live here as custom properties so the board never hard-codes one.
+ * The palette is deliberately warm and low-contrast for the squares, high for
+ * the markers — a child scanning for "where can this go?" should find the
+ * marker instantly, and the board should not glare on a phone at night. */
+
+:root {
+    color-scheme: light dark;
+
+    --bg: #f4f1ea;
+    --fg: #23201c;
+    --muted: #6b645a;
+    --edge: #3a342c;
+
+    --square-light: #f0d9b5;
+    --square-dark: #b58863;
+    --square-selected: #cdd26a;
+    --square-hint: #9fc98a;
+    --square-wrong: #d98a8a;
+    --marker: rgb(20 18 15 / 0.32);
+
+    --accent: #7a5c3e;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #171614;
+        --fg: #e8e3d9;
+        --muted: #9a938a;
+        --edge: #0d0c0b;
+
+        /* The board keeps its own contrast in the dark — the squares are the
+         * one thing that must not be re-themed into mud. Slightly dimmed, not
+         * inverted. */
+        --square-light: #d8c2a0;
+        --square-dark: #9c7350;
+        --square-selected: #b3b85c;
+        --square-hint: #7fa870;
+        --square-wrong: #c07575;
+        --marker: rgb(0 0 0 / 0.38);
+
+        --accent: #c9a97e;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    /* Stops iOS inflating text in landscape. */
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 1rem;
+    /* Safe-area insets keep content clear of the notch and the home indicator.
+     * Needs viewport-fit=cover in the meta tag — see index.html. */
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+    /* No rubber-band chaining while tapping near the board edge. */
+    overscroll-behavior: none;
+}
+
+main {
+    max-width: 40rem;
+    margin: 0 auto;
+    /* Centre the board in whatever height the phone gives us, rather than
+     * leaving it stranded at the top over a large dead area. svh excludes the
+     * URL bar; the fallback keeps older iOS sane. */
+    min-height: calc(100vh - 2rem);
+    min-height: calc(100svh - 2rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0 0 0.75rem;
+}
+
+/* The build number, answering "is this the change I just made?" — see
+ * CLAUDE.md. Deliberately unobtrusive but always present. */
+.build {
+    position: fixed;
+    top: max(0.4rem, env(safe-area-inset-top));
+    right: 0.6rem;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    padding: 0.5rem 0.9rem;
+    cursor: pointer;
+    /* Opts this element out of the tap delay without disabling pinch-zoom. */
+    touch-action: manipulation;
+    /* 44px is Apple's minimum comfortable touch target. A nine-year-old's aim
+     * is worse than an adult's, not better. */
+    min-height: 44px;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* On a phone the body padding is competing with the touch targets, and the
+ * targets win: at 375px, 1rem of side padding costs ~4px per square and puts
+ * them under Apple's 44px minimum. A child's aim is worse than an adult's,
+ * so the board gets the room. */
+@media (max-width: 30rem) {
+    body {
+        padding-left: max(0.25rem, env(safe-area-inset-left));
+        padding-right: max(0.25rem, env(safe-area-inset-right));
+    }
+}
+
+.credits {
+    margin-top: 2rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.credits a {
+    color: inherit;
+}
