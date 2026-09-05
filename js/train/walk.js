@@ -29,13 +29,22 @@ export class Walk {
     // and the app plays the opponent's. It is not "is it White's turn" — the
     // Scandinavian is taught from Black, so four of its eight moves are the
     // opponent's and the app plays more of that line than he does.
+    //
+    // `from` and `to` are the squares the move actually uses, which SAN mostly
+    // does not name: `Nf3` says nothing about g1, and there are two knights
+    // that could go there. The move hint marks them, so deriving them belongs
+    // here — with the real game — rather than in the UI (issue #14). The
+    // engine's own verbose move list is the source; nothing is parsed.
     get next() {
         const move = this.#line.moves[this.#played];
         if (!move) return null;
+        const real = this.#game.moves({ verbose: true }).find((m) => m.san === move.san);
         return {
             san: move.san,
             text: { en: move.en, de: move.de },
             isOwn: this.#game.turn() === this.#line.side,
+            from: real?.from ?? null,
+            to: real?.to ?? null,
         };
     }
 

@@ -20,6 +20,18 @@
     --square-wrong: #d98a8a;
     --marker: rgb(20 18 15 / 0.32);
 
+    /* The move hint. Blue rather than green or yellow: the board already
+     * spends those on `.hint` and `.selected`, and a hint that looked like a
+     * selection would be read as one.
+     *
+     * The two weights are carried by the ring's *width*, not by its alpha. A
+     * faded from-hint composites against the dark square to a neutral grey and
+     * stops reading as a mark at all — and "which piece" is the one job it
+     * has. Both are opaque enough to survive the blend over #b58863; the
+     * destination shouts by being thicker. */
+    --hint-from: rgb(24 76 150 / 0.85);
+    --hint-to: rgb(24 76 150 / 1);
+
     --accent: #7a5c3e;
 }
 
@@ -39,6 +51,12 @@
         --square-hint: #7fa870;
         --square-wrong: #c07575;
         --marker: rgb(0 0 0 / 0.38);
+
+        /* Lighter in the dark theme: the squares dim, so a ring at the light
+         * theme's hue reads as a hole rather than as a mark. Same rule about
+         * width carrying the weighting. */
+        --hint-from: rgb(125 180 240 / 0.85);
+        --hint-to: rgb(125 180 240 / 1);
 
         --accent: #c9a97e;
     }

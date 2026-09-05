@@ -155,6 +155,28 @@ export class Board {
         for (const name of squares) this.#squares.get(name)?.classList.add(className);
     }
 
+    // The move hint: mark the next own move, its origin quietly and its
+    // destination strongly (issue #14). Two weights rather than one, because
+    // "which piece" and "where to" are two questions and only the second one
+    // should shout.
+    //
+    // Deliberately *not* the `.hint` class above, despite the name. That one
+    // fills the square, and a fill collides with `.selected` — tapping the
+    // piece would paint over the mark at the exact moment it is being used.
+    // These two are outlines, so they coexist with a fill and with a dot on
+    // the same square. See CONTEXT.md.
+    //
+    // Called with no arguments, it clears. There is no state to keep: every
+    // render is followed by whoever owns the board deciding whether a hint is
+    // due, so the board never has to remember whether one was.
+    showMove(from, to) {
+        for (const el of this.#squares.values()) {
+            el.classList.remove('from-hint', 'to-hint');
+        }
+        if (from) this.#squares.get(from)?.classList.add('from-hint');
+        if (to) this.#squares.get(to)?.classList.add('to-hint');
+    }
+
     // Playing Black means seeing the board from Black's side. Rotating the
     // container and counter-rotating the pieces keeps one DOM order and one
     // source of truth for square positions.

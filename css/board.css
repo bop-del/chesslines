@@ -105,6 +105,43 @@
 .square.hint { background: var(--square-hint); }
 .square.wrong { background: var(--square-wrong); }
 
+/* ── The move hint ───────────────────────────────────────────────────────────
+ * The next own move, while it is his turn: where the piece is, and where it
+ * goes. Two weights, because they are two questions and only the second should
+ * shout (issue #14).
+ *
+ * A ring rather than a fill or a pseudo-element, and all three are deliberate.
+ * A fill would collide with `.selected` — tapping the piece paints the square
+ * yellow, erasing the mark at the moment it is being used. Both ::before and
+ * ::after are already spoken for on a square: the target dot, the capture ring
+ * and the coordinate labels. `outline` collides with none of them, so a square
+ * can carry a hint, a selection and a dot at once.
+ *
+ * Held just inside the square by a negative offset. Flush with the edge, the
+ * mark on a corner square sits against the board border and reads as a thicker
+ * border rather than as a mark; inset it reads as a mark either way. */
+.square.from-hint,
+.square.to-hint {
+    outline: var(--hint-ring) solid var(--hint-from);
+    outline-offset: calc(-1 * var(--hint-inset));
+}
+
+.square.to-hint {
+    outline: var(--hint-ring-strong) solid var(--hint-to);
+}
+
+/* An outline's width takes a length, not a percentage, so the ring cannot be a
+ * fraction of the square directly. `cqi` off the board as a container gives
+ * the same thing honestly: 1cqi is a hundredth of the board's width, so the
+ * ring keeps its proportion from a 375px phone up to the 40rem maximum — where
+ * a fixed 3px line would have vanished. */
+.board {
+    container-type: inline-size;
+    --hint-ring: 0.6cqi;
+    --hint-ring-strong: 1.4cqi;
+    --hint-inset: 1cqi;
+}
+
 /* ── Coordinates ─────────────────────────────────────────────────────────────
  * Naming squares is part of learning chess, so the labels earn their space. */
 

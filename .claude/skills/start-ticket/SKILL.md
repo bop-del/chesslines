@@ -82,9 +82,14 @@ git switch -c feat/3-drill-loop origin/main
 
 ### When it is a worktree
 
-Only with a live reason — two tickets genuinely startable at once. #17 is the
+Only with a live reason — two tickets genuinely startable at once. #15 is the
 open ticket on this, and it says worktrees buy throughput, which only pays off
 when sessions actually run concurrently.
+
+**A Herdr pane on its own is not a second lane.** Panes isolate the session;
+worktrees isolate the files. Two agents in two panes of the same clone share a
+working directory and a branch, and a `git switch` in one pulls the files out
+from under the other. #15 is about doing both at once.
 
 ```bash
 git worktree add ../chesslines-3 -b feat/3-drill-loop origin/main

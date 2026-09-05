@@ -28,6 +28,20 @@ let lang = LANGUAGES.includes(stored)
     ? stored
     : (navigator.language ?? 'en').startsWith('de') ? 'de' : 'en';
 
+// The move hint is a per-viewer preference too, defaulting to on, and stored
+// the same way and for the same reason as the language: one global value, not
+// one per line, and not in the URL — a shared link would carry the sender's
+// setting (ADR 0009's reasoning, applied). Nothing in the app ever suggests
+// turning it off; that is the no-streak rule, and it is why there is no
+// counter anywhere near this.
+const hint = (() => {
+    try {
+        return localStorage.getItem('hint') !== 'off';
+    } catch {
+        return true;
+    }
+})();
+
 const listEl = document.getElementById('list-screen');
 const listBody = document.getElementById('list');
 const explainEl = document.getElementById('explain');
@@ -63,6 +77,14 @@ const explain = new Explain(explainEl, {
     board,
     onBack: () => showList(),
     pause: Number.isFinite(pause) ? pause : 900,
+    hint,
+    onHint(on) {
+        try {
+            localStorage.setItem('hint', on ? 'on' : 'off');
+        } catch {
+            // A private window refuses this. The switch still works for this visit.
+        }
+    },
 });
 
 const list = new List(listBody, {

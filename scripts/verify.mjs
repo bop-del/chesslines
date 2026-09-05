@@ -56,7 +56,13 @@ const state = (page) => page.evaluate(() => ({
     history: window.chesslines.game.history(),
 }));
 
+// Back to a clean list screen with a fresh position. `showList` is the part
+// that matters and is easy to forget: resetting the game alone leaves the
+// Explain screen up, so its move text — and now its hint marks — survive into
+// whatever comes next. That state cannot occur in the app, and it was reaching
+// the screenshots, which are the visual gate (CLAUDE.md).
 const reset = (page) => page.evaluate(() => {
+    window.chesslines.showList();
     window.chesslines.game.reset();
     window.chesslines.board.render(window.chesslines.game);
 });
@@ -472,6 +478,176 @@ const checks = [
                 return document.querySelector('.explain-text').textContent;
             });
             assert(/c3/.test(text), `expected the ending sentence, got "${text}"`);
+        },
+    },
+
+    {
+        name: 'the move hint marks the squares of the due own move',
+        async run(page) {
+            // Nf3 is the case the hint exists for: the notation names neither
+            // square, and there are two knights that could go to f3.
+            const marks = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                explain.offer({ san: 'e4' });
+                await new Promise((r) => setTimeout(r, 30)); // the opponent plays e5
+                const at = (c) => [...document.querySelectorAll(`.square.${c}`)]
+                    .map((el) => el.dataset.square);
+                return { from: at('from-hint'), to: at('to-hint') };
+            });
+            eq(marks.from.join(), 'g1', 'the from-square');
+            eq(marks.to.join(), 'f3', 'the to-square');
+        },
+    },
+
+    {
+        name: 'the move hint is absent while the opponent is thinking',
+        async run(page) {
+            // A mark on a board that is not listening is worse than no mark, so
+            // the hint and the board's inertness have to say the same thing.
+            // pause=0 still defers by a tick, which is the window sampled here.
+            const during = await page.evaluate(() => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                explain.offer({ san: 'e4' }); // his move; the opponent's is now pending
+                return document.querySelectorAll('.square.from-hint, .square.to-hint').length;
+            });
+            eq(during, 0, 'marked squares during the opponent’s turn');
+        },
+    },
+
+    {
+        name: 'the move hint is absent while the line plays itself',
+        async run(page) {
+            const shown = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                document.querySelector('.show').click(); // Show me
+                await new Promise((r) => setTimeout(r, 30));
+                const marks =
+                    document.querySelectorAll('.square.from-hint, .square.to-hint').length;
+                document.querySelector('.show').click(); // Stop
+                return marks;
+            });
+            eq(shown, 0, 'marked squares during Show me');
+        },
+    },
+
+    {
+        name: 'the hint switch turns the marking off and on again',
+        async run(page) {
+            const counts = await page.evaluate(async () => {
+                const { showLine } = window.chesslines;
+                showLine('italian-game');
+                const marks = () =>
+                    document.querySelectorAll('.square.from-hint, .square.to-hint').length;
+                const toggle = document.querySelector('.hint-toggle');
+                const on = marks();
+                toggle.click();
+                const off = marks();
+                toggle.click();
+                return { on, off, back: marks() };
+            });
+            eq(counts.on, 2, 'marked squares with the hint on');
+            eq(counts.off, 0, 'marked squares with the hint off');
+            eq(counts.back, 2, 'marked squares after switching it back on');
+        },
+    },
+
+    {
+        name: 'the hint setting survives a reload',
+        async run(page) {
+            await page.evaluate(() => {
+                window.chesslines.showLine('italian-game');
+                document.querySelector('.hint-toggle').click(); // off
+            });
+            await page.reload({ waitUntil: 'networkidle' });
+            const after = await page.evaluate(() => {
+                window.chesslines.showLine('italian-game');
+                return {
+                    marks: document.querySelectorAll('.square.from-hint, .square.to-hint').length,
+                    label: document.querySelector('.hint-toggle').textContent,
+                };
+            });
+            // Back on, and that has to survive a reload too — a setting that
+            // only remembers one of its two values is remembering nothing.
+            // Restored before any assertion runs: this check owns a global,
+            // and leaving it off would fail every later hint check instead of
+            // just this one.
+            await page.evaluate(() => document.querySelector('.hint-toggle').click());
+            await page.reload({ waitUntil: 'networkidle' });
+            const on = await page.evaluate(() => {
+                window.chesslines.showLine('italian-game');
+                return {
+                    marks: document.querySelectorAll('.square.from-hint, .square.to-hint').length,
+                    label: document.querySelector('.hint-toggle').textContent,
+                };
+            });
+
+            eq(after.marks, 0, 'marked squares after a reload with the hint off');
+            eq(on.marks, 2, 'marked squares after a reload with the hint on');
+            // The label follows the setting, and says what tapping does rather
+            // than what the state is — so it reads "on" while the hint is off.
+            assert(
+                after.label !== on.label,
+                `the switch reads "${after.label}" either way`,
+            );
+        },
+    },
+
+    {
+        name: 'the hint survives tapping the piece it marks',
+        async run(page) {
+            // The collision this design exists to avoid: `.selected` fills the
+            // square, so a hint that also filled would be painted over at the
+            // exact moment it is being used. An outline coexists with a fill.
+            const both = await page.evaluate(() => {
+                window.chesslines.showLine('italian-game');
+                document.querySelector('.square[data-square="e2"]').click();
+                const el = document.querySelector('.square[data-square="e2"]');
+                return {
+                    selected: el.classList.contains('selected'),
+                    hinted: el.classList.contains('from-hint'),
+                };
+            });
+            assert(both.selected, 'e2 should be selected after a tap');
+            assert(both.hinted, 'the hint was lost when the piece was tapped');
+        },
+    },
+
+    {
+        name: 'the hint marks a Black line’s own move, not White’s',
+        async run(page) {
+            // Taught from Black: White's e4 plays itself, and the mark that
+            // follows must be on d7–d5, his move, seen from a flipped board.
+            const marks = await page.evaluate(async () => {
+                window.chesslines.showLine('scandinavian-defense');
+                await new Promise((r) => setTimeout(r, 30));
+                const at = (c) => [...document.querySelectorAll(`.square.${c}`)]
+                    .map((el) => el.dataset.square);
+                return { from: at('from-hint'), to: at('to-hint') };
+            });
+            eq(marks.from.join(), 'd7', 'the from-square');
+            eq(marks.to.join(), 'd5', 'the to-square');
+        },
+    },
+
+    {
+        name: 'nothing counts how the child did',
+        async run(page) {
+            // The no-streak rule, asserted rather than assumed: the app must
+            // store no measure of performance, so there is nothing to lose by
+            // being wrong and nothing that could ever suggest the switch.
+            const keys = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                explain.offer({ san: 'd4' }); // wrong
+                explain.offer({ san: 'e4' }); // right
+                await new Promise((r) => setTimeout(r, 30));
+                return Object.keys(localStorage);
+            });
+            const unexpected = keys.filter((k) => !['lang', 'hint'].includes(k));
+            assert(unexpected.length === 0, `unexpected storage keys: ${unexpected.join(', ')}`);
         },
     },
 

@@ -52,6 +52,17 @@ _Avoid_: comment, annotation, explanation, description
 **Move hint**:
 The next own move, shown on the board itself — its from-square marked quietly,
 its to-square marked strongly. A per-viewer preference that can be switched
-off, defaulting to on.
+off, defaulting to on. In the code it is `.from-hint` and `.to-hint`, drawn as
+outlines by `Board.showMove()`.
 _Avoid_: hint (the board already has a `.hint` class meaning something else),
 highlight, arrow, cue
+
+> **Why the hint is an outline, and why it does not reuse `.hint`.** The board
+> has four markers already: `.selected`, `.hint` and `.wrong` fill the square;
+> `.target` and `.capture` are a dot and a ring. A fill would collide with
+> `.selected` — tapping the piece would paint over the hint at the exact moment
+> it is being used — so the hint is an outline, which coexists with a fill and
+> a dot on one square. `.hint` itself is a green fill belonging to wrong-move
+> feedback, a different idea despite the name. Both pseudo-elements are also
+> spoken for on a square (the target dot, the capture ring, the coordinate
+> labels), which is why the outline is an `outline` and not a `::before`.
