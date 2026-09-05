@@ -10,9 +10,12 @@
 // line teaches something false, authoritatively, to someone with no reason to
 // doubt it.
 //
-// The ECO codes were read off the CC0 dataset for these exact move orders, not
-// from memory — a code names a position, so a line that starts differently
-// carries a different code. Check with scripts/lib/tsv/ before changing one.
+// The ECO code is the one the CC0 dataset gives for the most specific named
+// position this line passes through — the longest dataset entry that is a
+// prefix of our pgn. A code names a position, so a line that continues further
+// carries a different code than its own first moves do: this line is C54, while
+// the Italian Game as a family is C50. test/openings.test.mjs derives each code
+// from scripts/lib/tsv/ and fails if one drifts, so do not edit these by hand.
 //
 // The idea sentence names a *plan*, never an evaluation. "+0.3" means nothing
 // to a child; "get the bishop pointing at f7" is something he can act on.
@@ -20,7 +23,7 @@
 export const OPENINGS = [
     {
         id: 'italian-game',
-        eco: 'C50',
+        eco: 'C54',
         name: { en: 'Italian Game', de: 'Italienische Partie' },
         idea: {
             en: 'Point the bishop at f7, the weakest square in Black’s camp, and castle early.',
@@ -31,7 +34,7 @@ export const OPENINGS = [
     },
     {
         id: 'ruy-lopez',
-        eco: 'C60',
+        eco: 'C78',
         name: { en: 'Ruy Lopez', de: 'Spanische Partie' },
         idea: {
             en: 'Pin the knight that defends e5, then build a big centre behind it.',
@@ -42,7 +45,7 @@ export const OPENINGS = [
     },
     {
         id: 'scotch-game',
-        eco: 'C44',
+        eco: 'C45',
         name: { en: 'Scotch Game', de: 'Schottische Partie' },
         idea: {
             en: 'Break the centre open at once, before Black has finished developing.',
@@ -53,7 +56,7 @@ export const OPENINGS = [
     },
     {
         id: 'vienna-game',
-        eco: 'C25',
+        eco: 'C27',
         name: { en: 'Vienna Game', de: 'Wiener Partie' },
         idea: {
             en: 'Develop the queenside knight first and keep the f-pawn free to advance.',
@@ -64,7 +67,7 @@ export const OPENINGS = [
     },
     {
         id: 'kings-gambit',
-        eco: 'C30',
+        eco: 'C39',
         name: { en: 'King’s Gambit', de: 'Königsgambit' },
         idea: {
             en: 'Give up a pawn to rip the centre open and attack fast.',
@@ -89,7 +92,7 @@ export const OPENINGS = [
     },
     {
         id: 'queens-gambit',
-        eco: 'D06',
+        eco: 'D50',
         name: { en: 'Queen’s Gambit', de: 'Damengambit' },
         idea: {
             en: 'Offer the c-pawn to pull Black’s d-pawn away and own the centre.',
@@ -111,7 +114,7 @@ export const OPENINGS = [
     },
     {
         id: 'caro-kann',
-        eco: 'B10',
+        eco: 'B15',
         name: { en: 'Caro-Kann Defense', de: 'Caro-Kann-Verteidigung' },
         idea: {
             en: 'Back up the d-pawn with the c-pawn first, so the bishop can still escape to f5.',
@@ -122,7 +125,7 @@ export const OPENINGS = [
     },
     {
         id: 'french-defense',
-        eco: 'C00',
+        eco: 'C17',
         name: { en: 'French Defense', de: 'Französische Verteidigung' },
         idea: {
             en: 'Build a solid pawn chain, then attack its base with c5.',
@@ -133,7 +136,7 @@ export const OPENINGS = [
     },
     {
         id: 'sicilian-defense',
-        eco: 'B20',
+        eco: 'B54',
         name: { en: 'Sicilian Defense', de: 'Sizilianische Verteidigung' },
         idea: {
             en: 'Trade a wing pawn for a centre pawn and play for the counter-attack.',
