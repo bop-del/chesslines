@@ -282,6 +282,91 @@ const checks = [
             await page.setViewportSize(original);
         },
     },
+
+    {
+        name: 'the data layer loads in the browser',
+        async run(page) {
+            const n = await page.evaluate(() => window.chesslines.OPENINGS.length);
+            assert(n >= 8 && n <= 16, `${n} openings loaded`);
+        },
+    },
+
+    {
+        name: 'every shipped opening line is legal in the browser too',
+        async run(page) {
+            // The same assertion as the unit test, run where it actually
+            // matters. A module that parses under Node but throws in WebKit
+            // would otherwise ship.
+            const bad = await page.evaluate(() =>
+                window.chesslines.OPENINGS
+                    .filter((o) => {
+                        try { window.chesslines.parse(o.pgn); return false; }
+                        catch { return true; }
+                    })
+                    .map((o) => o.id));
+            assert(bad.length === 0, `illegal lines: ${bad.join(', ')}`);
+        },
+    },
+
+    {
+        name: 'variations survive parsing in the browser',
+        async run(page) {
+            // chess.js drops these silently. If our parser ever regresses to
+            // the same behaviour, this is what catches it.
+            const kids = await page.evaluate(() => {
+                const root = window.chesslines.parse('1. e4 e5 (1... c5 2. Nf3 d6) 2. Nf3');
+                return root.children[0].children.map((c) => c.san);
+            });
+            eq(kids.length, 2, 'continuations after 1. e4');
+            eq(kids[1], 'c5', 'the variation');
+        },
+    },
+
+    {
+        name: 'transpositions share a position key',
+        async run(page) {
+            const same = await page.evaluate(() => {
+                const { parse } = window.chesslines;
+                const leaf = (n) => { while (n.children.length) n = n.children[0]; return n; };
+                const a = leaf(parse('1. d4 Nf6 2. c4 e6 3. Nc3 d5'));
+                const b = leaf(parse('1. d4 d5 2. c4 e6 3. Nc3 Nf6'));
+                return { equal: a.key === b.key, fensDiffer: a.fen !== b.fen };
+            });
+            assert(same.fensDiffer, 'the full FENs should differ');
+            assert(same.equal, 'the four-field keys should match');
+        },
+    },
+
+    {
+        name: 'the catalogue names a position',
+        async run(page) {
+            const found = await page.evaluate(() => {
+                const g = new window.chesslines.game.constructor();
+                for (const m of ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4']) g.move(m);
+                return window.chesslines.nameOf(g.fen());
+            });
+            assert(found, 'the Italian Game should be named');
+            eq(found.eco, 'C50', 'ECO code');
+        },
+    },
+
+    {
+        name: 'every starter opening can be named as a line',
+        async run(page) {
+            // 3 of the 12 end past the catalogue, so this asks the question the
+            // UI will ask: what is this *line* called?
+            const unnamed = await page.evaluate(() => {
+                const { OPENINGS, parse, nameOfLine } = window.chesslines;
+                return OPENINGS.filter((o) => {
+                    const fens = [];
+                    let n = parse(o.pgn);
+                    while (n.children.length) { n = n.children[0]; fens.push(n.fen); }
+                    return !nameOfLine(fens);
+                }).map((o) => o.id);
+            });
+            assert(unnamed.length === 0, `unnamed lines: ${unnamed.join(', ')}`);
+        },
+    },
 ];
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
