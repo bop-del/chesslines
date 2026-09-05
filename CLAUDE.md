@@ -111,13 +111,19 @@ answers one question after a push: *is the tab I am looking at the change I
 just made, or a stale copy?* Pages takes 1–3 minutes, and without it the only
 way to tell is to guess.
 
-**Bump it by one in every commit that changes shipped code** (`index.html`,
-`css/`, `js/`) — same commit, not a follow-up. Docs-only, `scripts/`-only and
-`test/`-only commits leave it alone: the number tracks what is deployed, and a
-bump that changes nothing on screen makes it useless for the one job it has.
+**It is derived, not typed.** `npm run build-number` counts the commits that
+touched `index.html`, `css/` or `js/` and writes the result. Run it before
+merging shipped changes to `main`. Docs-only, `scripts/`-only and `test/`-only
+commits do not move it: the number tracks what is deployed, and one that
+changes without the page changing is useless for the one job it has.
 
-No hook enforces this. A hook would have to run a build to be reliable, and
-there is no build (rule 2).
+**Never edit `js/version.js` by hand.** `npm test` asserts it matches what
+history says, so a hand edit fails the suite.
+
+It used to be bumped by hand, which had two failure modes: a number can be
+skipped or duplicated, and every parallel lane edits the same line, so every
+parallel merge conflicted on it (#17). A number computed from history cannot do
+either — there is nothing to choose.
 
 ## Deploy
 

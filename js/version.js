@@ -3,7 +3,11 @@
 // copy? Pages takes 1–3 minutes, and without this the only way to tell is to
 // guess.
 //
-// Bump it by one in every commit that changes shipped code (index.html, css/,
-// js/). Docs-only and scripts/-only commits leave it alone — a bump that
-// changes nothing on screen makes it useless for the one job it has.
-export const BUILD = 'b11';
+// Derived, not typed: `npm run build-number` counts the commits that touched
+// what the browser downloads (index.html, css/, js/) and writes the result
+// here. Docs-only and scripts/-only commits do not move it — a number that
+// changes without the page changing is useless for the one job it has.
+//
+// Do not edit this by hand. A test asserts it matches what history says, and
+// deriving it is what stops parallel lanes conflicting on this line (#17).
+export const BUILD = 'b14';

@@ -5,7 +5,8 @@
   "description": "Dev tooling only. Nothing here ships \u2014 see docs/adr/0004-dev-dependencies.md.",
   "scripts": {
     "verify": "node scripts/verify.mjs",
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "build-number": "node scripts/build-number.mjs"
   },
   "devDependencies": {
     "playwright": "^1.55.0"
