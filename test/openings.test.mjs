@@ -97,6 +97,8 @@ test('every move text is written in both languages', () => {
     for (const o of OPENINGS.filter((o) => o.moves)) {
         assert.ok(o.intro?.en?.trim(), `${o.id}: missing intro.en`);
         assert.ok(o.intro?.de?.trim(), `${o.id}: missing intro.de`);
+        assert.ok(o.ending?.en?.trim(), `${o.id}: missing ending.en`);
+        assert.ok(o.ending?.de?.trim(), `${o.id}: missing ending.de`);
         for (const m of o.moves) {
             assert.ok(m.en?.trim(), `${o.id}/${m.san}: missing en`);
             assert.ok(m.de?.trim(), `${o.id}/${m.san}: missing de`);

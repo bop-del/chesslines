@@ -35,13 +35,14 @@ you watch the bishop arrive there. Stopping at the name teaches the index
 rather than the book.
 
 **The old scope was right about the cost, and the cost is real.** Twelve
-openings at 96 half-moves in two languages is 192 move sentences plus 24
-intros — **216 texts**, against 24 for one sentence per opening. That is
+openings at 96 half-moves in two languages is 192 move sentences, plus an intro
+and a closing sentence for each — **240 texts**, against 24 for one sentence per
+opening. That is
 a different project, and this ADR does not pretend otherwise.
 
 **Three openings is the whole point, not a compromise.** Whether a sentence per
-move actually helps Felix cannot be settled at a desk. Writing 216 texts before
-finding out is the expensive way to be wrong; writing 54 and watching him use
+move actually helps Felix cannot be settled at a desk. Writing 240 texts before
+finding out is the expensive way to be wrong; writing 60 and watching him use
 them is the cheap way to find out. The parent spec already says the acceptance
 loop here needs the actual child.
 
@@ -85,7 +86,7 @@ a nine-year-old one choice too many. Rejected: if a sentence per move is
 better, it should replace the weaker mode rather than sit next to it.
 
 **All twelve openings at launch.** The honest full version, and the one that
-risks 216 texts on an untested assumption.
+risks 240 texts on an untested assumption.
 
 **Texts as PGN comments** (`1. e4 {takes the centre}`). Standard PGN, and the
 parser already skips comments. Rejected: two languages do not fit one comment,

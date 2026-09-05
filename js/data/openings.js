@@ -82,6 +82,10 @@ export const OPENINGS = [
                 de: 'Jetzt geht es. Zwei Bauern nebeneinander in der Mitte — und Schwarz muss zuschlagen oder dir das ganze Zentrum überlassen.',
             },
         ],
+        ending: {
+            en: 'There they are: two pawns side by side in the middle, with your bishop still aimed at f7. That was the whole plan — and it only worked because c3 came first.',
+            de: 'Da stehen sie: zwei Bauern nebeneinander in der Mitte, und dein Läufer zielt immer noch auf f7. Das war der ganze Plan — und er ging nur auf, weil c3 vorher kam.',
+        },
     },
     {
         id: 'ruy-lopez',
@@ -192,6 +196,10 @@ export const OPENINGS = [
                 de: 'Der Läufer fesselt den Springer an die Dame dahinter — und dieser Springer ist einer der Verteidiger von d5. Er kann nicht weglaufen, ohne die Dame ungedeckt zu lassen.',
             },
         ],
+        ending: {
+            en: 'You own more of the centre than Black does, and the pinned knight is stuck guarding d5. Black is solid but cramped — that light-squared bishop still has nowhere good to go.',
+            de: 'Dir gehört mehr vom Zentrum als Schwarz, und der gefesselte Springer klebt an der Verteidigung von d5. Schwarz steht solide, aber eng — der weißfeldrige Läufer hat immer noch kein gutes Feld.',
+        },
     },
     {
         id: 'scandinavian-defense',
@@ -249,6 +257,10 @@ export const OPENINGS = [
                 de: 'Entwickeln — und d5 decken, damit der weiße Springer nicht dorthin springt und deine Dame erneut jagt.',
             },
         ],
+        ending: {
+            en: 'Your pawn is back, your pieces are out, and your queen is doing real work on a5. You gave up a little time at the start — this is what you bought with it.',
+            de: 'Dein Bauer ist zurück, deine Figuren sind draußen, und deine Dame arbeitet auf a5. Am Anfang hast du etwas Zeit gegeben — das hier hast du dafür bekommen.',
+        },
     },
     {
         id: 'caro-kann',

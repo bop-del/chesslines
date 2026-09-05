@@ -340,6 +340,7 @@ Each step is usable before the next exists.
 - 0009 — German and English, and why stored data stays English SAN
 - 0010 — Our own PGN parser, because chess.js discards variations
 - 0011 — A sentence per move, and shipping three openings to find out
+- 0012 — The opponent's move pauses, and the pause is a parameter
 
 ## Open questions
 

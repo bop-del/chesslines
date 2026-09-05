@@ -24,7 +24,8 @@ This spec deliberately reverses that, and the reversal needs stating plainly
 because the original reasoning was sound.
 
 **What the old scope got right:** the cost. Twelve openings at 96 half-moves,
-in two languages, is 192 move sentences, and 24 intros on top — **216 texts**.
+in two languages, is 192 move sentences, plus an intro and a closing sentence
+for each — **240 texts**.
 That is a different project from "a dozen openings with one sentence each" (24
 sentences), and pretending otherwise would be dishonest.
 
@@ -56,10 +57,10 @@ compression into one sentence per move. The other nine stay visible in the list
 but are not yet selectable, because an opening without its move texts is not
 what this mode is.
 
-That is **54 texts to write** (24 half-moves × 2 languages, plus 3 intros × 2),
-against 216 for the full twelve. The point of the smaller number is not effort
+That is **60 texts to write** (24 half-moves × 2 languages, plus an intro and a
+closing sentence for each of the three, × 2), against 240 for the full twelve. The point of the smaller number is not effort
 saved but **feedback earned**: whether a sentence per move actually helps Felix
-is not knowable from a desk, and writing 216 texts before finding out is the
+is not knowable from a desk, and writing 240 texts before finding out is the
 expensive way to be wrong.
 
 ## The flow
@@ -72,9 +73,34 @@ expensive way to be wrong.
    it. The move's sentence appears. Repeat to the end of the line.
 4. **Or watch instead.** A *show me* control plays the line automatically, and
    can be stopped at any point — after which he continues playing it himself.
+5. **The end.** A closing sentence says what the line achieved, with a way back
+   to the list and a way to play it again.
 
 There is no mode switch. Playing is the default; watching is a control that is
 always available and never required.
+
+### Whose move is whose
+
+Felix plays the moves of the side the line is for — his **own moves**. The app
+plays the **opponent's moves** itself, with their text, the same way Drill
+will. This is not cosmetic: the Scandinavian is taught from Black, so four of
+its eight moves are the opponent's and the app plays more of that line than
+Felix does.
+
+The opponent's move waits about a second before it plays, so its text is not
+replaced while the previous one is still being read. That pause is a parameter
+rather than a constant, and the verification run passes zero — see ADR 0012.
+
+### The catalogue is not used here
+
+Every position in this mode is one the line predicted, so there is nothing to
+name that is not already known. The twelve names are ours, hand-written and
+bilingual; the catalogue is English-only and more precise than a nine-year-old
+needs — it would answer "Italian Game: Classical Variation, Center Attack"
+where the app says *Italienische Partie*.
+
+The catalogue's job begins where a position is genuinely arrived at freely,
+which is Adopt and Drill, not here.
 
 ### A move that is not the line's move
 
