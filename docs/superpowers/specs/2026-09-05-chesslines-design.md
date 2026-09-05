@@ -322,6 +322,7 @@ Each step is usable before the next exists.
 - 0007 — Positions, not nodes: the repertoire data model
 - 0008 — localStorage plus export, and the 7-day rule
 - 0009 — German and English, and why stored data stays English SAN
+- 0010 — Our own PGN parser, because chess.js discards variations
 
 ## Open questions
 
