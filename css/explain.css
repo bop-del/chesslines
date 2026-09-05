@@ -1,0 +1,158 @@
+/* The two screens: the list of lines, and walking one.
+ *
+ * Phone first, and the constraint that shapes everything here is that the
+ * board and the move text must be visible at once. A text that needs a scroll
+ * to reach is a text a nine-year-old will not read, which would waste the
+ * whole point of the mode. */
+
+.topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.topbar h1 {
+    margin: 0;
+}
+
+.lang {
+    /* Quieter than the buttons that move the line along — switching language
+     * is a rare act next to playing a move. */
+    padding: 0.3rem 0.6rem;
+    min-height: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-color: transparent;
+}
+
+.lang:hover,
+.lang:focus-visible {
+    border-color: var(--edge);
+    color: var(--fg);
+}
+
+.screen-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 0.5rem;
+}
+
+/* ---- The list ---- */
+
+.group + .group {
+    margin-top: 1.25rem;
+}
+
+.group h2 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 0.4rem;
+}
+
+.lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.line {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+}
+
+.line-name {
+    font-weight: 600;
+}
+
+.line-idea {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.35;
+}
+
+/* An opening whose move texts are not written yet. Shown rather than hidden —
+ * a list that fills in over time is a promise kept in front of him — but
+ * plainly not ready. */
+.line:disabled {
+    opacity: 0.45;
+    cursor: default;
+    border-style: dashed;
+}
+
+/* ---- Walking a line ---- */
+
+.explain-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.back {
+    padding: 0.3rem 0.6rem;
+    min-height: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.explain-title {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.explain-side {
+    grid-column: 2;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.explain-intro {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.explain-board {
+    margin-bottom: 0.6rem;
+}
+
+/* The move text. It holds its height across moves so the board does not jump
+ * a line up and down as sentences of different lengths replace each other —
+ * a moving board is much worse than a little white space. */
+.explain-text {
+    margin: 0 0 0.75rem;
+    min-height: 3.9em;
+    line-height: 1.45;
+}
+
+.explain-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.explain-controls button {
+    flex: 1;
+}
+
+@media (min-width: 30rem) {
+    .explain-controls button {
+        flex: 0 0 auto;
+    }
+}

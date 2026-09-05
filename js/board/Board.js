@@ -163,6 +163,12 @@ export class Board {
         this.#root.classList.toggle('flipped', colour === 'b');
     }
 
+    // The board's element, so a screen can move the board into its own layout
+    // rather than each screen building a board of its own.
+    get root() {
+        return this.#root;
+    }
+
     get orientation() {
         return this.#orientation;
     }

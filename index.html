@@ -10,6 +10,7 @@
 <title>chesslines</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/board.css">
+<link rel="stylesheet" href="css/explain.css">
 </head>
 <body>
 
@@ -202,8 +203,19 @@
 <span class="build" id="build" aria-hidden="true"></span>
 
 <main>
-  <h1>chesslines</h1>
-  <div id="board"></div>
+  <div class="topbar">
+    <h1>chesslines</h1>
+    <button id="lang" class="lang"></button>
+  </div>
+
+  <section class="screen" id="list-screen">
+    <h2 id="list-title" class="screen-title"></h2>
+    <div id="list"></div>
+  </section>
+
+  <section id="explain" class="screen" hidden></section>
+
+  <div id="board-home"><div id="board"></div></div>
   <p class="credits">
     Pieces by <a href="https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces/Standard">Cburnett</a>,
     <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>.

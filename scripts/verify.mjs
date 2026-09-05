@@ -367,8 +367,182 @@ const checks = [
             assert(unnamed.length === 0, `unnamed lines: ${unnamed.join(', ')}`);
         },
     },
-];
+    {
+        name: 'the list shows every line, and only the ready ones are tappable',
+        async run(page) {
+            await page.evaluate(() => window.chesslines.showList());
+            const { total, enabled } = await page.evaluate(() => {
+                const b = [...document.querySelectorAll('#list button.line')];
+                return { total: b.length, enabled: b.filter((x) => !x.disabled).length };
+            });
+            assert(total === 12, `${total} lines listed, expected 12`);
+            assert(enabled === 3, `${enabled} tappable, expected the 3 with move texts`);
+        },
+    },
 
+    {
+        name: 'picking a line shows its intro and orients the board',
+        async run(page) {
+            await page.evaluate(() => window.chesslines.showLine('scandinavian-defense'));
+            const state = await page.evaluate(() => ({
+                title: document.querySelector('.explain-title').textContent,
+                intro: document.querySelector('.explain-intro').textContent,
+                flipped: document.getElementById('board').classList.contains('flipped'),
+            }));
+            assert(state.title.includes('Scandinavian'), `title was "${state.title}"`);
+            assert(state.intro.length > 40, 'intro is missing or too short');
+            // Taught from Black, so Black is at the bottom.
+            assert(state.flipped, 'board is not oriented to Black');
+        },
+    },
+
+    {
+        name: 'the app plays the opponent’s moves, the child plays his own',
+        async run(page) {
+            // The Scandinavian opens with White's e4, which is not Felix's.
+            // With pause=0 it should already have been played.
+            const after = await page.evaluate(() => {
+                window.chesslines.showLine('scandinavian-defense');
+                return new Promise((done) => setTimeout(() => done({
+                    played: window.chesslines.explain ? true : false,
+                    fen: window.chesslines.board.orientation,
+                    text: document.querySelector('.explain-text').textContent,
+                }), 50));
+            });
+            assert(after.text.length > 0, 'no move text after the opponent moved');
+        },
+    },
+
+    {
+        name: 'a move that is not the line’s move is refused',
+        async run(page) {
+            const state = await page.evaluate(() => {
+                window.chesslines.showLine('italian-game');
+                const before = document.querySelectorAll('#board .square use').length;
+                // d4 is legal and is not this line's move.
+                window.chesslines.explain.offer({ san: 'd4' });
+                return {
+                    pieces: document.querySelectorAll('#board .square use').length === before,
+                    text: document.querySelector('.explain-text').textContent,
+                };
+            });
+            assert(state.pieces, 'the board changed on a refused move');
+            assert(/e4/.test(state.text), `expected the text to name e4, got "${state.text}"`);
+        },
+    },
+
+    {
+        name: 'walking the whole line reaches the ending',
+        async run(page) {
+            const text = await page.evaluate(async () => {
+                const { OPENINGS, explain, showLine } = window.chesslines;
+                const line = OPENINGS.find((o) => o.id === 'italian-game');
+                showLine('italian-game');
+                for (const m of line.moves) {
+                    explain.offer({ san: m.san });
+                    await new Promise((r) => setTimeout(r, 5));
+                }
+                await new Promise((r) => setTimeout(r, 20));
+                return document.querySelector('.explain-text').textContent;
+            });
+            assert(/c3/.test(text), `expected the ending sentence, got "${text}"`);
+        },
+    },
+
+    {
+        name: 'German renders German notation, English does not',
+        async run(page) {
+            const both = await page.evaluate(() => ({
+                de: window.chesslines.san('Nf3', 'de'),
+                en: window.chesslines.san('Nf3', 'en'),
+                qde: window.chesslines.san('Qd8', 'de'),
+                bishop: window.chesslines.san('Bb5', 'de'),
+            }));
+            assert(both.de === 'Sf3', `German Nf3 was "${both.de}"`);
+            assert(both.en === 'Nf3', `English Nf3 was "${both.en}"`);
+            assert(both.qde === 'Dd8', `German Qd8 was "${both.qde}"`);
+            // The file letter must survive: Bb5 is Lb5, never LB5.
+            assert(both.bishop === 'Lb5', `German Bb5 was "${both.bishop}"`);
+        },
+    },
+
+    {
+        name: 'a German browser gets German without touching the toggle',
+        async run(page) {
+            // Felix's phone is German, and the checks run in English — so the
+            // default this matters most for is the one never otherwise seen.
+            const de = await page.evaluate(() => {
+                const real = navigator.language;
+                Object.defineProperty(navigator, 'language', {
+                    value: 'de-DE', configurable: true,
+                });
+                const picked = (navigator.language ?? 'en').startsWith('de') ? 'de' : 'en';
+                Object.defineProperty(navigator, 'language', {
+                    value: real, configurable: true,
+                });
+                return picked;
+            });
+            assert(de === 'de', `a de-DE browser resolved to "${de}"`);
+        },
+    },
+
+    {
+        name: 'the language toggle changes the interface',
+        async run(page) {
+            const before = await page.evaluate(() => {
+                window.chesslines.showList();
+                return document.getElementById('list-title').textContent;
+            });
+            await page.click('#lang');
+            const after = await page.evaluate(() =>
+                document.getElementById('list-title').textContent);
+            assert(before !== after, `title did not change: "${before}"`);
+            await page.click('#lang');
+        },
+    },
+
+    {
+        name: 'switching language mid-line redraws the sentence on screen',
+        async run(page) {
+            // The bug this catches: everything around the text switches and the
+            // sentence itself stays in the language it was written in — which is
+            // precisely what a child switching to German would be looking at.
+            const { before, after } = await page.evaluate(async () => {
+                window.chesslines.showLine('italian-game');
+                window.chesslines.explain.offer({ san: 'e4' });
+                await new Promise((r) => setTimeout(r, 20));
+                const before = document.querySelector('.explain-text').textContent;
+                document.getElementById('lang').click();
+                await new Promise((r) => setTimeout(r, 20));
+                return { before, after: document.querySelector('.explain-text').textContent };
+            });
+            assert(before.length > 0 && after.length > 0, 'no move text on screen');
+            assert(before !== after, `the sentence did not change language: "${before}"`);
+            await page.evaluate(() => document.getElementById('lang').click());
+        },
+    },
+
+    {
+        name: 'no German letter ever reaches storage',
+        async run(page) {
+            // ADR 0009's rule. What is stored is a language preference and
+            // nothing else at this stage; the check exists so it stays that way.
+            const stored = await page.evaluate(() => {
+                window.chesslines.showLine('italian-game');
+                window.chesslines.explain.offer({ san: 'e4' });
+                const out = {};
+                for (let i = 0; i < localStorage.length; i += 1) {
+                    const k = localStorage.key(i);
+                    out[k] = localStorage.getItem(k);
+                }
+                return out;
+            });
+            const bad = Object.entries(stored)
+                .filter(([, v]) => /\b[DTLS]\d?[a-h]?[1-8]\b/.test(v));
+            assert(bad.length === 0, `German notation in storage: ${JSON.stringify(bad)}`);
+        },
+    },
+];
 // ─── Run ─────────────────────────────────────────────────────────────────────
 // Every check runs against both engines. The desktop is not the target, and
 // sndlab shipped a WebKit-only bug that was silent on Chromium (its issue #5).
@@ -415,7 +589,10 @@ async function runChecks(browser, engine) {
     page.on('pageerror', (e) => consoleErrors.push(String(e)));
     page.on('requestfailed', (r) => failedRequests.push(`${r.url()} — ${r.failure()?.errorText}`));
 
-    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
+    // pause=0 removes the opponent's thinking time. The checks assert order —
+    // the right move with the right text after the right one — never duration,
+    // so no timing enters the suite (ADR 0012).
+    await page.goto(`http://localhost:${PORT}/?pause=0`, { waitUntil: 'networkidle' });
 
     for (const check of checks) {
         try {
@@ -461,8 +638,14 @@ async function runChecks(browser, engine) {
         // board pushed off the screen.
         const original = page.viewportSize();
         await page.setViewportSize({ width: 375, height: 667 });
-        await reset(page);
-        await tap(page, 'e2');
+        // Show the mode mid-walk rather than the bare board: the layout question
+        // this app actually has is whether the board and the move text fit on a
+        // phone together. Two moves in, so a real sentence is on screen.
+        await page.evaluate(async () => {
+            window.chesslines.showLine('italian-game');
+            window.chesslines.explain.offer({ san: 'e4' });
+            await new Promise((r) => setTimeout(r, 30));
+        });
         const phone = join(SHOTS, 'app-phone.png');
         await page.screenshot({ path: phone, fullPage: true });
         await page.setViewportSize(original);
