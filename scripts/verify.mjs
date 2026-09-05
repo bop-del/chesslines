@@ -14,7 +14,6 @@ import { fileURLToPath } from 'node:url';
 import { chromium, webkit } from 'playwright';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const PORT = 8123; // deliberately not 8000 — the dev server keeps that one
 const SHOTS = join(ROOT, '.screenshots');
 
 const MIME = {
@@ -43,7 +42,11 @@ function serve() {
             res.writeHead(404).end('not found');
         }
     });
-    return new Promise((resolve) => server.listen(PORT, () => resolve(server)));
+    // Port 0 asks the OS for whatever is free, so two lanes can verify at once
+    // (issue #18). A fixed port only moves the collision to a different number.
+    return new Promise((resolve) => {
+        server.listen(0, () => resolve(server));
+    });
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -763,6 +766,7 @@ const ENGINES = [
 ];
 
 const server = await serve();
+const origin = `http://localhost:${server.address().port}`;
 let failures = 0;
 
 try {
@@ -794,7 +798,7 @@ async function runChecks(browser, engine) {
     // pause=0 removes the opponent's thinking time. The checks assert order —
     // the right move with the right text after the right one — never duration,
     // so no timing enters the suite (ADR 0012).
-    await page.goto(`http://localhost:${PORT}/?pause=0`, { waitUntil: 'networkidle' });
+    await page.goto(`${origin}/?pause=0`, { waitUntil: 'networkidle' });
 
     for (const check of checks) {
         try {
