@@ -156,18 +156,32 @@
  * language toggle for the same reason: at the end of a line there would
  * otherwise be three equally loud buttons on a 375px screen, and the board has
  * to stay the loudest thing there. It never grows to match them. */
-.hint-toggle {
-    flex: 0 0 auto;
-    padding: 0.3rem 0.6rem;
+/* Specificity matters here: `.explain-controls button` above sets flex-grow,
+ * and a bare `.hint-toggle` loses to it — which made the rule below silently
+ * dead, and the switch grew to match the buttons on exactly the phone width
+ * the comment is about. */
+.explain-controls .hint-toggle {
+    /* Never grows to match the buttons; shrinks before they do. It is the
+     * least important thing in the row, so at the end of a German line —
+     * where "Nochmal spielen" is the longest label the app has — the squeeze
+     * lands here rather than wrapping a play control onto two lines. */
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 0.3rem 0.4rem;
     min-height: 0;
     font-size: 0.8rem;
     color: var(--muted);
     border-color: transparent;
     margin-left: auto;
+    /* One line, always. A two-line switch would be taller than the buttons it
+     * is meant to be quieter than. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.hint-toggle:hover,
-.hint-toggle:focus-visible {
+.explain-controls .hint-toggle:hover,
+.explain-controls .hint-toggle:focus-visible {
     border-color: var(--edge);
     color: var(--fg);
 }

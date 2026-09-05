@@ -141,8 +141,12 @@ export class Explain {
         this.#els.show.textContent = t(this.#showing ? 'explain.stop' : 'explain.showMe', this.#lang);
         this.#els.again.textContent = t('explain.again', this.#lang);
         this.#els.again.hidden = !this.#walk?.done;
+        // The label is the action, not the state — "Hide the hint" while it is
+        // showing. No `aria-pressed` beside it: the two would contradict each
+        // other in both directions ("Hide the hint, pressed" while the hint is
+        // visible), and a button whose label already names what tapping does
+        // needs no state on top of it.
         this.#els.hint.textContent = t(this.#hinting ? 'explain.hintOff' : 'explain.hintOn', this.#lang);
-        this.#els.hint.setAttribute('aria-pressed', String(this.#hinting));
     }
 
     #afterMove(step) {

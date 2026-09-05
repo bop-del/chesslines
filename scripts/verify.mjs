@@ -56,7 +56,13 @@ const state = (page) => page.evaluate(() => ({
     history: window.chesslines.game.history(),
 }));
 
+// Back to a clean list screen with a fresh position. `showList` is the part
+// that matters and is easy to forget: resetting the game alone leaves the
+// Explain screen up, so its move text — and now its hint marks — survive into
+// whatever comes next. That state cannot occur in the app, and it was reaching
+// the screenshots, which are the visual gate (CLAUDE.md).
 const reset = (page) => page.evaluate(() => {
+    window.chesslines.showList();
     window.chesslines.game.reset();
     window.chesslines.board.render(window.chesslines.game);
 });
@@ -563,18 +569,29 @@ const checks = [
                     label: document.querySelector('.hint-toggle').textContent,
                 };
             });
-            eq(after.marks, 0, 'marked squares after a reload with the hint off');
-            assert(/show/i.test(after.label), `the switch reads "${after.label}"`);
-
             // Back on, and that has to survive a reload too — a setting that
             // only remembers one of its two values is remembering nothing.
+            // Restored before any assertion runs: this check owns a global,
+            // and leaving it off would fail every later hint check instead of
+            // just this one.
             await page.evaluate(() => document.querySelector('.hint-toggle').click());
             await page.reload({ waitUntil: 'networkidle' });
             const on = await page.evaluate(() => {
                 window.chesslines.showLine('italian-game');
-                return document.querySelectorAll('.square.from-hint, .square.to-hint').length;
+                return {
+                    marks: document.querySelectorAll('.square.from-hint, .square.to-hint').length,
+                    label: document.querySelector('.hint-toggle').textContent,
+                };
             });
-            eq(on, 2, 'marked squares after a reload with the hint on');
+
+            eq(after.marks, 0, 'marked squares after a reload with the hint off');
+            eq(on.marks, 2, 'marked squares after a reload with the hint on');
+            // The label follows the setting, and says what tapping does rather
+            // than what the state is — so it reads "on" while the hint is off.
+            assert(
+                after.label !== on.label,
+                `the switch reads "${after.label}" either way`,
+            );
         },
     },
 

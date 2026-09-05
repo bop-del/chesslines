@@ -137,8 +137,8 @@
  * a fixed 3px line would have vanished. */
 .board {
     container-type: inline-size;
-    --hint-ring: 0.7cqi;
-    --hint-ring-strong: 1.2cqi;
+    --hint-ring: 0.6cqi;
+    --hint-ring-strong: 1.4cqi;
     --hint-inset: 1cqi;
 }
 
