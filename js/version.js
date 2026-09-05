@@ -8,6 +8,9 @@
 // here. Docs-only and scripts/-only commits do not move it — a number that
 // changes without the page changing is useless for the one job it has.
 //
+// This file is excluded from its own count, so writing the number cannot change
+// what the number should be.
+//
 // Do not edit this by hand. A test asserts it matches what history says, and
 // deriving it is what stops parallel lanes conflicting on this line (#17).
-export const BUILD = 'b16';
+export const BUILD = 'b14';

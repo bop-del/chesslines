@@ -120,10 +120,11 @@ changes without the page changing is useless for the one job it has.
 **Never edit `js/version.js` by hand.** `npm test` asserts it matches what
 history says, so a hand edit fails the suite.
 
-**Run it as the last step before merging, then commit the result on `main`.**
-The count includes the commit that writes the number, so a value derived on a
-branch is one short the moment it lands. The test will say so — that is the
-signal to run it again, not a bug.
+**`js/version.js` itself is excluded from the count**, which is what makes the
+number stable: writing it is a commit touching `js/`, so counting it would move
+the count again the moment it landed and the value would never settle. Run
+`npm run build-number` whenever shipped files changed; running it twice says
+"unchanged" the second time.
 
 It used to be bumped by hand, which had two failure modes: a number can be
 skipped or duplicated, and every parallel lane edits the same line, so every

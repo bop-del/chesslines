@@ -14,11 +14,9 @@
 // commit — docs and dev tooling ship to nobody, and a number that moves without
 // the page moving is useless for the one job it has.
 //
-// Run it as the last step before merging, and commit the result on main:
-//   npm run build-number
-// It rewrites js/version.js only when the number actually changed. The count
-// includes the commit that writes the number, so a value derived on a branch is
-// one short once it lands — run it again on main and the test goes green.
+// Run it whenever shipped files changed:  npm run build-number
+// It rewrites js/version.js only when the number actually changed, and the
+// result is stable — running it twice says "unchanged" the second time.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -30,7 +28,12 @@ const VERSION = join(ROOT, 'js', 'version.js');
 
 // What the browser downloads from Pages. js/vendor/ is in here deliberately:
 // re-vendoring chess.js changes what ships, even though we did not write it.
-const SHIPPED = ['index.html', 'css/', 'js/'];
+// js/version.js is excluded, and that exclusion is what makes this work at all.
+// Writing the number is itself a commit touching js/, so counting it would move
+// the count again the moment it lands — the value would never converge, and
+// chasing it commit by commit does not terminate. Excluded, the number is a
+// fixed point: writing it cannot change what it should be.
+const SHIPPED = ['index.html', 'css/', 'js/', ':!js/version.js'];
 
 export function buildNumber() {
     const out = execFileSync('git', ['rev-list', '--count', 'HEAD', '--', ...SHIPPED], {
