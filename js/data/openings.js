@@ -114,8 +114,8 @@ export const OPENINGS = [
         eco: 'B10',
         name: { en: 'Caro-Kann Defense', de: 'Caro-Kann-Verteidigung' },
         idea: {
-            en: 'Support the d-pawn with the c-pawn, so the light-squared bishop can still get out.',
-            de: 'Den d-Bauern mit dem c-Bauern stützen — so kommt der weißfeldrige Läufer noch heraus.',
+            en: 'Back up the d-pawn with the c-pawn first, so the bishop can still escape to f5.',
+            de: 'Den d-Bauern zuerst mit dem c-Bauern stützen — so kommt der Läufer noch nach f5 heraus.',
         },
         side: 'b',
         pgn: '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5',
@@ -147,8 +147,8 @@ export const OPENINGS = [
         eco: 'E70',
         name: { en: 'King’s Indian Defense', de: 'Königsindische Verteidigung' },
         idea: {
-            en: 'Let White take the centre, then hit it with the fianchettoed bishop and e5.',
-            de: 'Weiß das Zentrum überlassen und es dann mit dem Fianchetto-Läufer und e5 angreifen.',
+            en: 'Let White build a big centre, then attack it with the bishop on g7 and the e-pawn.',
+            de: 'Weiß ein großes Zentrum bauen lassen und es dann mit dem Läufer auf g7 und dem e-Bauern angreifen.',
         },
         side: 'b',
         pgn: '1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6',
