@@ -120,6 +120,11 @@ changes without the page changing is useless for the one job it has.
 **Never edit `js/version.js` by hand.** `npm test` asserts it matches what
 history says, so a hand edit fails the suite.
 
+**Run it as the last step before merging, then commit the result on `main`.**
+The count includes the commit that writes the number, so a value derived on a
+branch is one short the moment it lands. The test will say so — that is the
+signal to run it again, not a bug.
+
 It used to be bumped by hand, which had two failure modes: a number can be
 skipped or duplicated, and every parallel lane edits the same line, so every
 parallel merge conflicted on it (#17). A number computed from history cannot do

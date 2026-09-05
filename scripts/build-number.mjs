@@ -14,8 +14,11 @@
 // commit — docs and dev tooling ship to nobody, and a number that moves without
 // the page moving is useless for the one job it has.
 //
-// Run it before merging shipped changes to main:  node scripts/build-number.mjs
-// It rewrites js/version.js only when the number actually changed.
+// Run it as the last step before merging, and commit the result on main:
+//   npm run build-number
+// It rewrites js/version.js only when the number actually changed. The count
+// includes the commit that writes the number, so a value derived on a branch is
+// one short once it lands — run it again on main and the test goes green.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
