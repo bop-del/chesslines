@@ -63,8 +63,16 @@ export class Explain {
     }
 
     // Called by whoever owns the board, with the move the user tapped.
+    //
+    // The board is inert while it is not his turn. Without that guard a tap
+    // during the opponent's pause reaches the walk, which only compares SAN and
+    // does not care whose move it is: tapping the opponent's move would play it,
+    // and the timer already pending would then play his *next* move for him. He
+    // would lose his turn to the app.
     offer(move) {
         if (!this.#walk || this.#showing) return;
+        if (this.#timer !== null) return;
+        if (!this.#walk.next?.isOwn) return;
         const step = this.#walk.play(move.san);
 
         if (!step.ok) {
@@ -141,8 +149,11 @@ export class Explain {
         if (this.#walk.done) {
             this.#showing = false;
             this.#stopTimer();
-            const ending = this.#walk.ending;
-            if (ending) this.#later(() => this.#say(ending));
+            // The ending is appended rather than scheduled. Scheduling it would
+            // replace the last move's sentence after one pause — the very thing
+            // the pause exists to prevent.
+            const ending = pick(this.#walk.ending, this.#lang);
+            if (ending) this.#els.text.textContent += ` ${ending}`;
             return;
         }
 

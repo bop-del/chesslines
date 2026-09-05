@@ -40,7 +40,9 @@ export class List {
     }
 
     #item(line, lang) {
-        const ready = Boolean(line.moves);
+        // Matches Walk's own guard — `moves: []` is a natural half-written
+        // state, and it must not produce a button that throws when tapped.
+        const ready = Boolean(line.moves?.length);
         const li = document.createElement('li');
 
         const button = document.createElement('button');

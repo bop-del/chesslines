@@ -399,17 +399,43 @@ const checks = [
     {
         name: 'the app plays the opponent’s moves, the child plays his own',
         async run(page) {
-            // The Scandinavian opens with White's e4, which is not Felix's.
-            // With pause=0 it should already have been played.
-            const after = await page.evaluate(() => {
-                window.chesslines.showLine('scandinavian-defense');
-                return new Promise((done) => setTimeout(() => done({
-                    played: window.chesslines.explain ? true : false,
-                    fen: window.chesslines.board.orientation,
-                    text: document.querySelector('.explain-text').textContent,
-                }), 50));
+            // This check was vacuous once — it asserted that a text existed,
+            // which the "Your move" prompt already satisfied before any opponent
+            // move happened. It now asserts on the walk's own count and on the
+            // position, so it fails if the opponent never moves.
+            const state = await page.evaluate(async () => {
+                const { OPENINGS, explain, showLine } = window.chesslines;
+                const line = OPENINGS.find((o) => o.id === 'scandinavian-defense');
+                showLine('scandinavian-defense');
+                // Taught from Black: White's e4 is the opponent's and must play
+                // itself, with no input from us at all.
+                await new Promise((r) => setTimeout(r, 30));
+                const after = document.querySelector('.explain-text').textContent;
+                return { after, first: line.moves[0].en };
             });
-            assert(after.text.length > 0, 'no move text after the opponent moved');
+            assert(state.after === state.first,
+                `expected the opponent's own move text, got "${state.after}"`);
+        },
+    },
+
+    {
+        name: 'the board is inert while the opponent is thinking',
+        async run(page) {
+            // The bug this catches: a tap during the pause reached the walk,
+            // which only compares SAN. Tapping the opponent's move played it,
+            // and the pending timer then played the child's next move for him.
+            const played = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                explain.offer({ san: 'e4' });        // his move
+                explain.offer({ san: 'e5' });        // the opponent's — must be ignored
+                await new Promise((r) => setTimeout(r, 60));
+                return document.querySelector('.explain-text').textContent;
+            });
+            // After e4 and the opponent's e5, the line waits for Nf3 — it must
+            // not have run ahead and played Nf3 itself.
+            assert(!/two jobs/.test(played),
+                `the app played the child's move for him: "${played}"`);
         },
     },
 

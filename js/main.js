@@ -56,7 +56,8 @@ board.root.classList.add('coords');
 // The pause before an opponent's move is a parameter, not a constant, so the
 // verification run can set it to zero and assert order rather than duration
 // (ADR 0012). `?pause=0` is the only way in — nothing in the UI sets it.
-const pause = Number(new URLSearchParams(location.search).get('pause') ?? 900);
+const asked = new URLSearchParams(location.search).get('pause');
+const pause = asked === null || asked === '' ? 900 : Number(asked);
 
 const explain = new Explain(explainEl, {
     board,
