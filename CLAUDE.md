@@ -1,0 +1,159 @@
+# chesslines
+
+A static browser app for learning chess openings. Framework-free.
+
+Two users: Boris and his nine-year-old son Felix. Public, so other people may
+use it, but **every design trade-off is settled in Felix's favour.**
+
+> **Language: English.** All code, comments, docs, commits, issues and PRs in
+> this repo are written in English — it is public. Conversation with Boris may
+> be in German; what gets written down is not. The *app itself* is bilingual,
+> which is a different thing entirely — see ADR 0009.
+>
+> **Identity: private account only.** Commits use `Boris Diebold
+> <boris.diebold+gh@gmail.com>` (set in this repo's `.git/config`). Never pass
+> `-c user.email=...` to git here — the work account must not appear in this
+> repo's history.
+>
+> **No commit trailers.** Do not add `Co-Authored-By:` or `Claude-Session:`
+> lines to commits in this repo. They add third-party contributors to the
+> public repo and link a private session from it.
+
+## Quick Start
+
+```bash
+cc-chesslines                # Claude Code in this repo, with engineering skills
+python3 -m http.server 8000  # dev server (own tab) → http://localhost:8000
+bin/setup                    # health check: prerequisites + deploy chain
+```
+
+No build step. Change a file, reload the browser. That is the whole loop.
+
+## Hard rules
+
+1. **No runtime dependencies.** No npm package in shipped code, no CDN links.
+   All imports relative. Third-party code is *vendored* instead (ADR 0002).
+2. **No build step.** What is in the repo runs in the browser. No bundler,
+   no transpiler, no Tailwind.
+3. **Vanilla JS + native ES modules.** No React, Vue, Svelte.
+4. **Keep files small.** Split at ~500 lines. `js/vendor/` is exempt — it is
+   out of view.
+5. **English everywhere** in the repo.
+6. **Stored data is always English SAN.** The repertoire, the export file and
+   the position keys never see a German piece letter. Translation happens at
+   the edge, on the way to the screen, and nowhere else (ADR 0009).
+
+Note there is **no "encode state in the URL" rule** here, unlike sndlab. A
+repertoire plus progress exceeds the safe URL length, and a shared link would
+carry the sender's language. Progress lives in localStorage (ADR 0008).
+
+### Why
+
+An agent can hold the entire codebase in view, and there is no user state on a
+server that can break — which permits aggressive rewrites instead of cautious
+edits. Every dependency and every build step erodes that. See ADR 0001.
+
+## Structure
+
+```
+index.html
+css/
+js/
+├── main.js          entry point — wiring only, no logic
+├── board/           renders a position, reports tap-to-move intent
+├── data/            pgn parsing, position keys, the opening catalogue
+└── vendor/          third-party, out of view (ADR 0002)
+docs/
+├── adr/             architecture decisions — ten of them
+├── agents/          issue tracker, triage labels, domain docs
+└── research/        source notes
+scripts/             dev tooling — build-catalogue, verify. Ships to nobody.
+test/                node --test over the pure logic
+```
+
+## Verification
+
+Two layers, and neither replaces the other.
+
+```bash
+npm test             # node --test — the pure logic in js/data/
+npm run verify       # Playwright — the real thing, both engines
+```
+
+`npm test` covers the position key, the PGN tree and catalogue lookup in
+milliseconds, which is what makes test-first practical. `npm run verify` serves
+the repo on port 8123 (the dev server keeps 8000, so both run at once) and
+asserts what unit tests structurally cannot: that the modules load over HTTP,
+the imports resolve, the console is clean, and it all works in **WebKit** as
+well as Chromium. It writes `.screenshots/` — `app.png`, `app-selected.png` and a phone-sized
+`app-phone.png` — on every run, pass or fail.
+
+**Nothing is verified until both pass and the screenshot has been looked at.**
+A green run with an unexamined screenshot is not a verification — the checks
+cannot see layout, contrast or whether a nine-year-old could use it.
+
+**Every shipped line must be proved legal.** A mistyped move in a curated
+opening is invisible to review and authoritative to a child. `test/openings.test.mjs`
+runs the starter list through the engine; the browser run does it again. Add an
+opening only with its test passing.
+
+Playwright's WebKit is not iOS Safari. It does not implement Apple's tracking
+prevention, so the 7-day storage eviction **cannot be reproduced by any check
+here** (ADR 0006). **A real phone is the only proof for anything mobile.**
+
+Adding a feature means adding its checks. Dev tooling lives under `scripts/`
+and `test/`; shipped code stays dependency-free (ADR 0005).
+
+## The build number
+
+`js/version.js` holds one string — `b30`, `b31`, … — shown on the page. It
+answers one question after a push: *is the tab I am looking at the change I
+just made, or a stale copy?* Pages takes 1–3 minutes, and without it the only
+way to tell is to guess.
+
+**Bump it by one in every commit that changes shipped code** (`index.html`,
+`css/`, `js/`) — same commit, not a follow-up. Docs-only, `scripts/`-only and
+`test/`-only commits leave it alone: the number tracks what is deployed, and a
+bump that changes nothing on screen makes it useless for the one job it has.
+
+No hook enforces this. A hook would have to run a build to be reliable, and
+there is no build (rule 2).
+
+## Deploy
+
+Push to `main` → GitHub Pages (branch deploy from `/`). No manual step, no
+Actions workflow (ADR 0004). Expect 1–3 minutes of CDN latency between push and
+visible change — iterate locally, don't deploy to test.
+
+Because there is no CI, `npm test` and `npm run verify` are a **local gate**.
+Nothing stops a broken commit reaching Pages except running them first.
+
+## Designing for a nine-year-old
+
+These are decisions, not niceties. The full reasoning is in the design spec.
+
+- **No streak, ever.** Gamification's measured effect decays from d=1.57 within
+  an hour to **d=−0.20 over a year**. A progress meter that only goes up, and
+  surprise unlocks — never something that can be lost.
+- **Feedback names the idea**, not just the verdict: "this develops toward the
+  centre", not "correct".
+- **Always allow a retry.** A wrong move is shown, explained, and tried again.
+- **No engine evaluation.** A −0.3 is meaningless and discouraging to a child.
+- **Board oriented to his side.**
+
+## Agent skills
+
+### Issue tracker
+
+GitHub issues on `bop-del/chesslines`, with progress tracked on project board 3
+rather than in open/closed state. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Two axes that do not overlap: **kind** as a label, **status** on the board.
+See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` and `docs/adr/` at the root.
+See `docs/agents/domain.md`.

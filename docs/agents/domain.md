@@ -18,15 +18,22 @@ Single-context repo — one `CONTEXT.md` and one `docs/adr/`, both at the root:
 ├── CONTEXT.md
 ├── docs/adr/
 │   ├── 0001-no-framework.md
-│   ├── 0002-branch-deploy.md
-│   └── 0003-url-as-state.md
+│   ├── 0002-vendoring.md
+│   └── …ten in total
 ├── css/
 └── js/
+    ├── board/    the board: renders a position, reports tap-to-move intent
+    ├── data/     pgn, position keys, the opening catalogue
+    └── vendor/   third-party, out of view (ADR 0002)
 ```
 
-There is no `src/`; the code lives in `js/` (`js/audio/`, `js/ui/`). If this ever
-grows into separate contexts, the layout to move to is a root `CONTEXT-MAP.md`
-pointing at one `CONTEXT.md` per context — but that is not this repo.
+There is no `src/`; the shipped code lives in `js/`. `js/vendor/` is
+third-party and out of view — do not explore it for domain vocabulary.
+Dev-only tooling lives in `scripts/` and `test/` and ships to nobody.
+
+If this ever grows into separate contexts, the layout to move to is a root
+`CONTEXT-MAP.md` pointing at one `CONTEXT.md` per context — but that is not
+this repo.
 
 ## Use the glossary's vocabulary
 
@@ -38,4 +45,4 @@ If the concept you need isn't in the glossary yet, that's a signal — either yo
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+> _Contradicts ADR 0007 (positions, not nodes) — but worth reopening because…_
