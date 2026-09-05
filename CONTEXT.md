@@ -66,3 +66,16 @@ highlight, arrow, cue
 > feedback, a different idea despite the name. Both pseudo-elements are also
 > spoken for on a square (the target dot, the capture ring, the coordinate
 > labels), which is why the outline is an `outline` and not a `::before`.
+
+**Launchpad**:
+The session in the main clone. It stays on `main`, never checks out a feature
+branch, and exists to create lanes and start agents in them — so it cannot be
+moved under its own feet by work happening elsewhere. Addressable as the Herdr
+agent `launchpad`.
+_Avoid_: main session, host, parent
+
+**Lane**:
+One ticket's isolated place to work: a git worktree for the files, plus a Herdr
+workspace and agent for the session. Both halves are required — a pane alone
+shares the launchpad's working directory, which is not isolation.
+_Avoid_: worktree (that is only the files), pane, window, branch
