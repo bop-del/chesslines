@@ -26,20 +26,34 @@ repertoire, drilling that repertoire with spaced repetition, and exporting and
 importing the result.
 
 **Out, for now:** engine evaluation, playing full games, tactics puzzles,
-opponent modelling, accounts, and any server. Also out: teaching the *plans*
-behind an opening beyond a single line of prose per opening — that is a much
-larger project and would change what this is.
+opponent modelling, accounts, and any server.
+
+> **Amended 2026-09-05.** This section used to rule out *"teaching the plans
+> behind an opening beyond a single line of prose per opening"*. The Explain
+> mode deliberately reverses that: one sentence **per move**, at the same depth
+> as before. The reasoning, and the cost it accepts, are in
+> `2026-09-05-explain-design.md`. Nothing beyond a sentence per move is in
+> scope — that limit still holds.
 
 ## The three modes
 
 Ordered as Felix meets them.
 
-### Explore
+### Explain
+
+> **Superseded 2026-09-05.** This mode was called *Explore* and stopped at a
+> name plus one sentence. It is now **Explain**, specified in full in
+> `2026-09-05-explain-design.md`; the summary below is kept current.
 
 A curated list of about a dozen real openings — Italian Game, Ruy Lopez,
 Scotch, Queen's Gambit, London System, Scandinavian, Caro-Kann, French, and
-similar. Tap one and play through its moves on the board, with the name and a
-one-sentence idea. No scoring, no commitment.
+similar. Pick one, read two or three sentences on what it is for, then walk the
+line **one move at a time** — playing each move on the board, with a sentence
+per move saying what it achieves, or watching it play itself. A move that is
+not the line's move is refused, never scored. No commitment.
+
+It ships with three openings; the rest stay in the list, inert, until their
+move texts exist.
 
 **The catalogue cannot be this list.** The CC0 Lichess dataset has 3,810
 openings and is exhaustive rather than curated — it contains "Sicilian Defense:
@@ -301,9 +315,11 @@ Each step is usable before the next exists.
    engines.*
 2. **PGN with variations** — the parser and its tree, plus the legality check
    over the starter list.
-3. **Explore** — the curated list, playable on the board, named from the
-   catalogue. German and English land here, with the first UI text — retrofitting
-   i18n after three modes exist is much worse than starting with it.
+3. **Explain** — the curated list, walked one move at a time with a sentence
+   per move. German and English land here, with the first UI text — retrofitting
+   i18n after three modes exist is much worse than starting with it. Ships with
+   three openings, not twelve, so the shape is tested on Felix before the
+   remaining texts are written. See `2026-09-05-explain-design.md`.
 4. **Adopt** — repertoire in localStorage, with export and import.
 5. **Drill** — the ladder, the session builder, the retry-and-explain loop.
 6. **Then judge.** Watch Felix use it before building more. The PWA decision and
@@ -323,6 +339,7 @@ Each step is usable before the next exists.
 - 0008 — localStorage plus export, and the 7-day rule
 - 0009 — German and English, and why stored data stays English SAN
 - 0010 — Our own PGN parser, because chess.js discards variations
+- 0011 — A sentence per move, and shipping three openings to find out
 
 ## Open questions
 

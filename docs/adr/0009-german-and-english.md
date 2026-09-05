@@ -31,8 +31,9 @@ A toggle between German and English, in **three deliberately separated layers**:
 Language is a per-user preference in localStorage, defaulting to
 `navigator.language`. **It is not in the URL.**
 
-This lands with **Explore**, the first mode with UI text — not retrofitted after
-three modes exist.
+This lands with **Explain**, the first mode with UI text — not retrofitted after
+three modes exist. (That mode was called Explore when this ADR was written; the
+decision is unaffected by the rename.)
 
 ## Rationale
 
@@ -69,8 +70,9 @@ shows English notation in a German UI — a visible bug, caught by the check
 below.
 
 **Negative:** The starter list carries two names and two idea sentences per
-opening, both hand-written by someone who plays. That is real editorial work and
-it gates Explore.
+opening, both hand-written and reviewed by someone who plays. That is real
+editorial work and it gates Explain — more of it than this ADR first assumed,
+since Explain adds a sentence per move.
 
 **Negative:** Mixed languages on screen when a catalogue-named position appears
 in a German UI. Accepted, per the asymmetry above.
