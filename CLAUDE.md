@@ -141,6 +141,82 @@ These are decisions, not niceties. The full reasoning is in the design spec.
 - **No engine evaluation.** A −0.3 is meaningless and discouraging to a child.
 - **Board oriented to his side.**
 
+## How work flows
+
+Issues are the backlog (`gh issue list`); the board says where each one has got
+to. The workflow runs on the Matt Pocock engineering skills plus two that live
+in this repo. The main flow, idea → shipped:
+
+```
+/superpowers:brainstorming        turn an idea into a design; classifies the
+                                  work and writes the spec
+/mattpocock-skills:grill-with-docs
+                                  interview until the decisions are settled;
+                                  writes CONTEXT.md and ADRs as it goes
+/mattpocock-skills:to-tickets     split a spec into tickets with blocking edges
+                                  — skip it when the work is one coherent
+                                  change, which is most of the time here
+/start-ticket                     claim the card and cut a branch, before any
+                                  code exists
+/mattpocock-skills:implement      build a ticket; drives /tdd, closes with
+                                  /code-review
+/accept-ticket                    the judgements a verification run cannot
+                                  make, walked one at a time, then Done
+```
+
+Keep brainstorming, grilling and tickets in **one context window** — the spec
+is the first thing that survives a compact. `/implement` then starts fresh per
+ticket.
+
+`/start-ticket` and `/accept-ticket` bookend the build and live in
+`.claude/skills/`, not the shared engineering skills, because they know about
+this board, this verification run and this build number.
+
+**`/accept-ticket` is the slow step here, and it is meant to be.** In sndlab
+the question was "does it sound good", answered in thirty seconds. Here it is
+**"does it teach"**, and only Felix can answer it. Expect a card to sit in
+`Needs review` until he has used the thing.
+
+On-ramps onto that flow, not steps in it:
+
+```
+/mattpocock-skills:wayfinder      an effort too big for one session, where the
+                                  route is not yet visible. Plans rather than
+                                  builds: its output is decisions, not code.
+                                  Adopt (#9) and Drill (#10) are marked for it.
+/mattpocock-skills:research       a background agent against primary sources,
+                                  writing one sourced Markdown file into
+                                  docs/research/. Use it for opening move texts.
+/mattpocock-skills:prototype      when a design question needs runnable code
+/superpowers:systematic-debugging a bug that resists a first look
+```
+
+### Name collisions are real — check the prefix
+
+Two bundles are installed and several skill names appear in both, plus a
+personal set in `~/.claude/skills/`. The unprefixed name is not always the one
+meant:
+
+- **`/research`** is a personal skill that writes into an Obsidian vault.
+  **`/mattpocock-skills:research`** is the one that writes into this repo.
+- **`grilling`**, **`tdd`**, **`code-review`** and **`prototype`** exist in
+  more than one place.
+
+When a skill seems missing, it is usually the prefix, not the skill.
+
+### Two bundles, one job each
+
+`brainstorming` (Superpowers) and `grill-with-docs` (Pocock) are not rivals:
+brainstorming diverges to find the design, grilling converges to settle it.
+Running one then the other is the intended path, and the spec they produce
+lands in `docs/superpowers/specs/` where both can read it.
+
+Their build steps *are* rivals — `writing-plans` + `executing-plans`
+(Superpowers) is the alternative to `to-tickets` + `start-ticket`
+(Pocock/local). This repo uses the ticket route, because the board is where
+work already lives. A plan document beside it would be a second source of truth
+that `gh issue list` cannot see.
+
 ## Agent skills
 
 ### Issue tracker
