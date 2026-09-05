@@ -48,3 +48,10 @@ _Avoid_: computer move, White's move (depends on the line), automatic move
 The one sentence attached to a move, saying what it achieves. Always names a
 plan, never an evaluation. Display-only: never stored, never exported.
 _Avoid_: comment, annotation, explanation, description
+
+**Move hint**:
+The next own move, shown on the board itself — its from-square marked quietly,
+its to-square marked strongly. A per-viewer preference that can be switched
+off, defaulting to on.
+_Avoid_: hint (the board already has a `.hint` class meaning something else),
+highlight, arrow, cue
