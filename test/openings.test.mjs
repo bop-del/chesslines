@@ -74,3 +74,42 @@ test('every ECO code is the one the CC0 dataset gives for that line', () => {
             `${o.id}: ${o.eco} but the dataset says ${named.eco} (${named.name})`);
     }
 });
+
+test('move texts line up with the moves they describe', () => {
+    // The failure this prevents is silent and specific: if `moves` drifts from
+    // `pgn` by one entry, the bishop's sentence appears on the knight's move.
+    // Nothing throws, the app looks fine, and a child is told something false
+    // about the position in front of him.
+    for (const o of OPENINGS.filter((o) => o.moves)) {
+        const root = parse(o.pgn);
+        const line = [];
+        for (let n = root; n.children.length; ) {
+            n = n.children[0];
+            line.push(n.san);
+        }
+
+        assert.deepEqual(o.moves.map((m) => m.san), line,
+            `${o.id}: moves[] does not match the line parsed from pgn`);
+    }
+});
+
+test('every move text is written in both languages', () => {
+    for (const o of OPENINGS.filter((o) => o.moves)) {
+        assert.ok(o.intro?.en?.trim(), `${o.id}: missing intro.en`);
+        assert.ok(o.intro?.de?.trim(), `${o.id}: missing intro.de`);
+        for (const m of o.moves) {
+            assert.ok(m.en?.trim(), `${o.id}/${m.san}: missing en`);
+            assert.ok(m.de?.trim(), `${o.id}/${m.san}: missing de`);
+        }
+    }
+});
+
+test('an opening without move texts is still valid data', () => {
+    // Nine of twelve ship without texts and show as inert list entries. That is
+    // a state the data model allows on purpose, not a half-finished migration.
+    const withText = OPENINGS.filter((o) => o.moves);
+    assert.equal(withText.length, 3, 'three openings ship with move texts');
+    for (const o of OPENINGS.filter((o) => !o.moves)) {
+        assert.equal(o.intro, undefined, `${o.id}: intro without moves`);
+    }
+});
