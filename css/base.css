@@ -20,6 +20,13 @@
     --square-wrong: #d98a8a;
     --marker: rgb(20 18 15 / 0.32);
 
+    /* The move hint. From-square quiet, to-square loud — the destination is
+     * the answer, the origin only says which piece. Blue rather than green or
+     * yellow: the board already spends those on `.hint` and `.selected`, and
+     * a hint that looked like a selection would be read as one. */
+    --hint-from: rgb(30 90 160 / 0.45);
+    --hint-to: rgb(30 90 160 / 0.95);
+
     --accent: #7a5c3e;
 }
 
@@ -39,6 +46,11 @@
         --square-hint: #7fa870;
         --square-wrong: #c07575;
         --marker: rgb(0 0 0 / 0.38);
+
+        /* Lighter in the dark theme: the squares dim, so a ring at the light
+         * theme's saturation reads as a hole rather than as a mark. */
+        --hint-from: rgb(120 175 235 / 0.5);
+        --hint-to: rgb(120 175 235 / 0.95);
 
         --accent: #c9a97e;
     }

@@ -144,11 +144,32 @@
 
 .explain-controls {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
 }
 
 .explain-controls button {
     flex: 1;
+}
+
+/* The hint switch. Quieter than the buttons beside it, and styled like the
+ * language toggle for the same reason: at the end of a line there would
+ * otherwise be three equally loud buttons on a 375px screen, and the board has
+ * to stay the loudest thing there. It never grows to match them. */
+.hint-toggle {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.6rem;
+    min-height: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-color: transparent;
+    margin-left: auto;
+}
+
+.hint-toggle:hover,
+.hint-toggle:focus-visible {
+    border-color: var(--edge);
+    color: var(--fg);
 }
 
 @media (min-width: 30rem) {

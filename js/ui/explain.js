@@ -17,18 +17,22 @@ export class Explain {
     #board;
     #onBack;
     #pause;
+    #onHint;
     #walk = null;
     #lang = 'en';
     #showing = false;
     #timer = null;
     #shown = null; // the {en, de} pair on screen, so a language switch can redraw it
+    #hinting = true;
     #els = {};
 
-    constructor(root, { board, onBack, pause = 900 }) {
+    constructor(root, { board, onBack, pause = 900, hint = true, onHint }) {
         this.#root = root;
         this.#board = board;
         this.#onBack = onBack;
         this.#pause = pause;
+        this.#hinting = hint;
+        this.#onHint = onHint;
         this.#build();
     }
 
@@ -56,10 +60,16 @@ export class Explain {
         const controls = el('div', 'explain-controls', this.#root);
         this.#els.show = el('button', 'show', controls);
         this.#els.again = el('button', 'again', controls);
+        // Quieter than the two beside it, and styled like the language toggle:
+        // at the end of a line there would otherwise be three equally loud
+        // buttons on a 375px screen, and the board should stay the loudest
+        // thing there. It never suggests being switched — see #toggleHint.
+        this.#els.hint = el('button', 'hint-toggle', controls);
 
         this.#els.back.addEventListener('click', () => this.#onBack());
         this.#els.show.addEventListener('click', () => this.#toggleShow());
         this.#els.again.addEventListener('click', () => this.#restart());
+        this.#els.hint.addEventListener('click', () => this.#toggleHint());
     }
 
     // Called by whoever owns the board, with the move the user tapped.
@@ -109,6 +119,7 @@ export class Explain {
         this.#stopTimer();
         this.#walk = null;
         this.#showing = false;
+        this.#board.showMove(null, null);
     }
 
     setLanguage(lang) {
@@ -130,6 +141,8 @@ export class Explain {
         this.#els.show.textContent = t(this.#showing ? 'explain.stop' : 'explain.showMe', this.#lang);
         this.#els.again.textContent = t('explain.again', this.#lang);
         this.#els.again.hidden = !this.#walk?.done;
+        this.#els.hint.textContent = t(this.#hinting ? 'explain.hintOff' : 'explain.hintOn', this.#lang);
+        this.#els.hint.setAttribute('aria-pressed', String(this.#hinting));
     }
 
     #afterMove(step) {
@@ -154,12 +167,38 @@ export class Explain {
             // the pause exists to prevent.
             const ending = pick(this.#walk.ending, this.#lang);
             if (ending) this.#els.text.textContent += ` ${ending}`;
+            this.#hint();
             return;
         }
 
         if (!this.#walk.next.isOwn || this.#showing) {
             this.#later(() => this.#playForward());
         }
+
+        this.#hint();
+    }
+
+    // The move hint, drawn or cleared (issue #14).
+    //
+    // Shown exactly when the board is listening: not during the opponent's
+    // pause, not while the line plays itself, not once it is over. A mark on a
+    // square that does not respond is worse than no mark, so hint and
+    // interactivity say the same thing — the conditions here are deliberately
+    // the same ones `offer` refuses on.
+    #hint() {
+        const due = this.#walk?.next;
+        const show = this.#hinting && due?.isOwn && !this.#showing;
+        this.#board.showMove(show ? due.from : null, show ? due.to : null);
+    }
+
+    // Switching it is his decision and nothing else's. The app measures no
+    // performance, counts no clean runs and never offers — an announced reward
+    // is the mechanism the no-streak rule rules out (CLAUDE.md).
+    #toggleHint() {
+        this.#hinting = !this.#hinting;
+        this.#labels();
+        this.#hint();
+        this.#onHint?.(this.#hinting);
     }
 
     #playForward() {
@@ -176,6 +215,9 @@ export class Explain {
         this.#labels();
         if (this.#showing) this.#later(() => this.#playForward());
         else this.#stopTimer();
+        // Stopping hands the board back, so the hint comes back with it;
+        // starting takes it away, so the hint goes.
+        this.#hint();
     }
 
     #restart() {

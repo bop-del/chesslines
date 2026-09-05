@@ -98,3 +98,40 @@ test('a line with no move texts cannot be walked', () => {
     const bare = OPENINGS.find((o) => !o.moves);
     assert.throws(() => new Walk(bare), /no move texts/i);
 });
+
+test('the due move names the squares it comes from and goes to', () => {
+    // The move hint marks these two. Deriving them here rather than in the UI
+    // keeps "which squares" a question about the move (issue #14).
+    const w = new Walk(italian);
+    assert.equal(w.next.from, 'e2');
+    assert.equal(w.next.to, 'e4');
+    w.play('e4');
+    assert.equal(w.next.from, 'e7', 'the opponent’s move has squares too');
+    assert.equal(w.next.to, 'e5');
+});
+
+test('the squares are the moving piece’s, not the notation’s', () => {
+    // Nf3 names neither square it involves. This is the case the hint exists
+    // for: a child cannot read g1 out of "Nf3", and there are two knights.
+    const w = new Walk(italian);
+    w.play('e4');
+    w.play('e5');
+    assert.equal(w.next.san, 'Nf3');
+    assert.equal(w.next.from, 'g1');
+    assert.equal(w.next.to, 'f3');
+});
+
+test('a line taught from Black names squares from Black’s side too', () => {
+    const w = new Walk(scandi);
+    assert.equal(w.next.from, 'e2', 'White’s opening move, played by the app');
+    w.play('e4');
+    assert.equal(w.next.san, 'd5');
+    assert.equal(w.next.from, 'd7', 'his own move, from Black’s side');
+    assert.equal(w.next.to, 'd5');
+});
+
+test('there are no squares once the line is over', () => {
+    const w = new Walk(italian);
+    for (const m of italian.moves) w.play(m.san);
+    assert.equal(w.next, null);
+});
