@@ -163,12 +163,16 @@ When it is under the line:
    comment. The rejection changed what the ticket asks for; a card moved to
    `Done` against criteria nobody updated is how #21 came to claim something
    untrue about the drone, which #24 then had to correct.
-2. Apply the fix.
-3. **Bump the build number and commit it separately** — its own commit, its
-   own bump, message noting it came from acceptance of #n. The number on
-   screen must always be the thing being tested.
-4. Re-run `scripts/verify.mjs`. Green before continuing.
-5. **Restart the walk from test 1.** Not from the failed test. A fix can
+2. Apply the fix and commit it. **Do not bump the build number here** — it is
+   written once, at landing, in step 7. A fix during the walk is one more
+   shipped commit; writing the number now only means writing it again after
+   the rebase.
+
+   The number on screen therefore still reads the landed one, which is what
+   the walk has been testing against all along. Say so when you re-open the
+   page, so a number that has not moved is not read as a stale tab.
+3. Re-run `scripts/verify.mjs`. Green before continuing.
+4. **Restart the walk from test 1.** Not from the failed test. A fix can
    degrade something already accepted, and `verify.mjs` cannot hear it — that
    is the entire reason this walk exists.
 
@@ -206,10 +210,28 @@ The lane does this itself. That is the point of it owning the ticket end to end:
 a merge run from the launchpad would be the launchpad touching a feature branch,
 which is the thing lanes exist to prevent.
 
-Before opening it, run `npm run build-number` and commit the result if it moved.
-It is derived from history, so it settles once the merge base is known and
-cannot conflict with another lane's (#17) — but the number on Pages is wrong
-until someone writes it.
+**Rebase first, then write the build number.** In that order, and this is the
+only place in the flow that writes it:
+
+```bash
+git fetch origin && git rebase origin/main
+npm run build-number
+git commit -am "Set the build number to what history says"   # only if it moved
+```
+
+The rebase has to come first because it changes the answer: `main` may have
+moved by several shipped commits since the lane was cut, and a number derived
+before it is one the lane will have to write twice. #22 counted four of those
+landing on `main` in one day.
+
+A rebase also re-opens the hole it fills. On #13's merge the rebase reported
+`skipped previously applied commit` for the lane's own build-number commit —
+correct, another lane had bumped it too — which left `js/version.js` behind what
+history now said. Deriving *after* the rebase is what makes that unreachable.
+
+Do not bump it earlier. The test measures the file against the merge base, so a
+lane that has not written it is green all the way through the build; a lane that
+writes it early goes red the moment `main` moves.
 
 **Why a PR at all, when there is no second reader.** Not for review —
 `/accept-ticket` is the review, and a stricter one than reading a diff. Three

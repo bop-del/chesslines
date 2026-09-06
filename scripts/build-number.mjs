@@ -14,7 +14,13 @@
 // commit — docs and dev tooling ship to nobody, and a number that moves without
 // the page moving is useless for the one job it has.
 //
-// Run it whenever shipped files changed:  npm run build-number
+// Run it once, when the lane lands — after the rebase, before the PR. Not while
+// building: a lane that writes the number mid-flight writes it again after the
+// rebase, which is the noise #22 counted (four "Set the build number" commits on
+// main in one day) and the false green it caused.
+//
+//   git rebase origin/main && npm run build-number
+//
 // It rewrites js/version.js only when the number actually changed, and the
 // result is stable — running it twice says "unchanged" the second time.
 
