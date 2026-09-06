@@ -181,14 +181,20 @@ On yes:
 
 - Move the card (`docs/agents/issue-tracker.md` has the ids; `Done` is
   `bafab4de`).
-- Confirm the issue closed — a commit with `Closes #n` will have done it
-  already. Check rather than assume.
-- Comment the manual results on the issue: each test and its verdict, and
-  explicitly call out any accepted trade-off that held up, so a later reader
-  knows it was tested rather than forgotten.
 - Note anything that supersedes an earlier ticket's criteria, pointing at both.
 
-On no: leave the card in `Needs review` and say what is outstanding.
+**Then go straight to step 7 — the yes is the trigger, and nothing else asks
+for it.** The work is not landed until the PR is merged and the lane is gone,
+so stopping here leaves a Done card in front of an unmerged branch. Do not
+report success and wait to be told to merge.
+
+The manual results do **not** go on the issue as a comment. They go in the PR
+body, next to the diff they are about — step 7 says what to put there. Nor is
+the issue closed here: `Closes #n` fires on the PR, not before it exists, so
+there is nothing to confirm yet.
+
+On no: leave the card in `Needs review`, say what is outstanding, and open no
+PR.
 
 ## 7. Open the PR, then merge it
 
@@ -249,7 +255,11 @@ the diff it is about. Put in it —
 - the `/code-review` findings and what was done about each,
 - `Closes #<n>`.
 
-Then confirm the issue actually closed rather than assuming the keyword worked.
+Then confirm the issue actually closed rather than assuming the keyword worked,
+**and confirm the card actually reads `Done`.** Card #14 sat in `In progress`
+for a day after its PR merged and its issue closed — the move in step 6 is a
+separate write to a separate system, and nothing else notices when it is
+missed.
 
 **Ask the launchpad to remove the lane.** Not self-removal: an agent cannot
 delete the directory its own process is running in without risking a
@@ -261,8 +271,27 @@ Please run: herdr worktree remove --workspace <workspace-id>"
 ```
 
 The workspace id is the one `/start-ticket` reported when it opened the lane;
-`herdr workspace list` has it if that is out of reach. Say that the message was
-sent, and stop — the launchpad does the removal, and this session ends with it.
+`herdr workspace list` has it if that is out of reach.
+
+**Ask it to take the local branch too.** `git push origin --delete` clears the
+remote; the local branch survives in the launchpad's clone, where it shows as
+`[origin/...: gone]`. Three of those accumulated in one day of parallel work.
+They read as unmerged — GitHub squashes, so the hashes differ — which makes
+`git branch --no-merged` useless for spotting real leftovers. Fold it into the
+same message:
+
+```bash
+herdr agent prompt launchpad "Lane for #<n> is merged and the card is Done. \
+Please run: herdr worktree remove --workspace <workspace-id> \
+then: git branch -D <branch>"
+```
+
+**Stop anything this lane started.** A dev server or an HTTPS server put up for
+the device walk keeps its port after the lane is gone — one survived a full day
+and a machine restart's worth of sessions. Kill it before handing over.
+
+Say that the message was sent, and stop — the launchpad does the removal, and
+this session ends with it.
 
 ## How the walk gets started
 
