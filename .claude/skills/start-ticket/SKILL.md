@@ -112,6 +112,14 @@ Take the source from git rather than typing `~/code/chesslines`: the common git
 dir is the main clone's, whichever clone that is, and the launcher was just made
 path-agnostic for the same reason.
 
+Nothing else is needed to keep it out of `git status`. `.gitignore` says
+`node_modules` without a trailing slash, which matches the main clone's
+directory and the lane's symlink alike — the slash matched only a directory, so
+every lane used to report `?? node_modules` forever, and an agent running `git
+add -A` would have committed a symlink to an absolute path on this machine.
+Per-worktree `info/exclude` is not the fix: git reads that file from the
+**common** git dir, so a lane cannot have its own.
+
 **Then run the suite in the lane, before handing it to an agent.** A lane that
 starts red wastes a whole session, and the failure is usually not the lane: when
 this was done by hand for #15, `npm test` failed on the build number, which

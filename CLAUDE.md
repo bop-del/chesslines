@@ -215,6 +215,14 @@ Do not `herdr agent wait` on anything. A blocked lane is a session held open for
 no reason, and a launchpad blocked on one lane cannot open the next, which is
 the whole point of lanes.
 
+**A lane lands its work through a PR**, opened by `/accept-ticket` after the
+walk and merged with `gh pr merge --rebase`. Not for review — the walk is the
+review — but because `Closes #n` only fires on a PR (#16 is the only one this
+repo has had, and the only issue that closed itself; #17 and #18 fast-forwarded
+and stayed open), and because the `/code-review` findings need somewhere to live
+other than a terminal about to be closed. `--rebase` keeps `main`'s straight
+history. A rejected lane opens no PR.
+
 Two things make parallel lanes painless rather than merely possible, and both
 were taxes paid deliberately: the build number is derived from history rather
 than typed (#17), so lanes cannot conflict on it, and `verify.mjs` asks the OS

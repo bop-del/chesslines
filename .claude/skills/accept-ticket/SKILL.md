@@ -190,18 +190,53 @@ On yes:
 
 On no: leave the card in `Needs review` and say what is outstanding.
 
-## 7. Merge, then close the lane
+## 7. Open the PR, then merge it
 
-The lane merges its own work. That is the point of it owning the ticket end to
-end: a merge run from the launchpad would be the launchpad touching a feature
-branch, which is the thing lanes exist to prevent.
+Only once the walk has passed and Boris has said `Done`. A lane that was
+rejected, or one whose gates went red, must not leave a PR behind for somebody
+to close.
 
-Before merging, run `npm run build-number` and commit the result if it moved.
-It is derived from history, so it settles after the merge base is known and
+The lane does this itself. That is the point of it owning the ticket end to end:
+a merge run from the launchpad would be the launchpad touching a feature branch,
+which is the thing lanes exist to prevent.
+
+Before opening it, run `npm run build-number` and commit the result if it moved.
+It is derived from history, so it settles once the merge base is known and
 cannot conflict with another lane's (#17) — but the number on Pages is wrong
 until someone writes it.
 
-Then merge to `main` and push, and confirm the issue closed.
+**Why a PR at all, when there is no second reader.** Not for review —
+`/accept-ticket` is the review, and a stricter one than reading a diff. Three
+things a fast-forward cannot do:
+
+- **`Closes #n` only fires on a PR.** Measured: #16 is the only PR this repo has
+  ever had, and the only issue that closed on its own. #17 and #18 both merged
+  by fast-forward and stayed open until someone closed them by hand.
+- **The diff gets somewhere to live.** The `/code-review` findings otherwise
+  exist only in a terminal that is about to be closed. On #14 they included a
+  1.46:1 contrast measurement and a screenshot that lied — worth keeping next to
+  the diff they describe.
+- **Merge order becomes visible.** Three lanes land in some order; a PR says
+  "cannot merge cleanly" rather than telling you halfway through a merge.
+
+```bash
+gh pr create --title "<the ticket's title>" --body "<see below>"
+gh pr merge --rebase --delete-branch
+```
+
+`--rebase`, so `main` keeps the straight history it has now. A merge commit per
+lane is the cost this repo does not have to pay.
+
+**The PR body carries what the walk judged.** This matters more than the PR
+itself: on #14 that record went into an issue comment, where it sits away from
+the diff it is about. Put in it —
+
+- the table of tests and verdicts from step 6,
+- any accepted trade-off that held up, named as such,
+- the `/code-review` findings and what was done about each,
+- `Closes #<n>`.
+
+Then confirm the issue actually closed rather than assuming the keyword worked.
 
 **Ask the launchpad to remove the lane.** Not self-removal: an agent cannot
 delete the directory its own process is running in without risking a
