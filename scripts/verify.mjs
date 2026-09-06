@@ -293,6 +293,113 @@ const checks = [
     },
 
     {
+        name: 'coordinate labels stay readable on a phone',
+        async run(page) {
+            const original = page.viewportSize();
+            await page.setViewportSize({ width: 375, height: 667 });
+
+            // Both pseudo-elements, on the one square that carries both.
+            const read = () =>
+                page.evaluate(() => {
+                    const a1 = document.querySelector('.square[data-square="a1"]');
+                    return ['::before', '::after'].map((which) => {
+                        const s = getComputedStyle(a1, which);
+                        return {
+                            which,
+                            size: parseFloat(s.fontSize),
+                            opacity: parseFloat(s.opacity),
+                            shadow: s.textShadow,
+                            events: s.pointerEvents,
+                            colour: s.color,
+                        };
+                    });
+                });
+
+            // Both themes and both orientations: a fix tuned in light on an
+            // unflipped board would pass while failing three of the four ways
+            // the board is actually seen (#13).
+            //
+            // The page is shared by every check, so the theme, the orientation
+            // and the viewport all go back even when an assertion throws —
+            // otherwise one failure here reappears as a cascade of unrelated
+            // ones below it.
+            //
+            // Orientation goes through `board.flip()` rather than through the
+            // class: `flip` also sets the board's own `#orientation`, and
+            // toggling `.flipped` behind its back leaves the two disagreeing.
+            const wasFlipped = await page.evaluate(() =>
+                document.getElementById('board').classList.contains('flipped'),
+            );
+
+            // The floor comes off the board itself, so retuning it is a
+            // one-line change in board.css rather than a number to keep in step
+            // in two files. What is asserted here is that a floor exists and is
+            // high enough for a child — 8.2px was the bug (#13).
+            const floor = await page.evaluate(() =>
+                parseFloat(
+                    getComputedStyle(document.getElementById('board')).getPropertyValue(
+                        '--coord-min',
+                    ),
+                ),
+            );
+            assert(floor >= 11, `--coord-min is ${floor}px, too small for a nine-year-old`);
+            const colours = {};
+            try {
+                for (const scheme of ['light', 'dark']) {
+                    await page.emulateMedia({ colorScheme: scheme });
+                    for (const flipped of [false, true]) {
+                        await page.evaluate((f) => {
+                            window.chesslines.board.flip(f ? 'b' : 'w');
+                        }, flipped);
+                        const where = `${scheme}${flipped ? ', flipped' : ''}`;
+                        for (const { which, size, opacity, shadow, events, colour } of await read()) {
+                            if (!flipped) colours[`${scheme}${which}`] = colour;
+                            assert(
+                                size >= floor,
+                                `${which} label is ${size.toFixed(1)}px at 375px (${where}), ` +
+                                    `below the ${floor}px floor`,
+                            );
+                            // The labels used to be halved into the square they
+                            // sat on. Contrast is the halo's job now, not
+                            // opacity's.
+                            eq(opacity, 1, `${which} label opacity (${where})`);
+                            assert(
+                                shadow && shadow !== 'none',
+                                `${which} label has no halo (${where}), so its contrast ` +
+                                    'depends on the square underneath',
+                            );
+                            // A bigger label is a bigger thing to swallow a tap
+                            // that belongs to the 44px square under it.
+                            eq(events, 'none', `${which} label pointer-events (${where})`);
+                        }
+                    }
+                }
+
+                // The dark theme has to actually re-colour the labels. Without
+                // this the loop above would pass on a fix that only ever ran in
+                // light — the sizes and the opacity are identical either way,
+                // so the colour is the only thing that proves the theming.
+                for (const which of ['::before', '::after']) {
+                    assert(
+                        colours[`light${which}`] !== colours[`dark${which}`],
+                        `${which} label is ${colours[`light${which}`]} in both themes, ` +
+                            'so it is not themed at all',
+                    );
+                }
+            } finally {
+                // null is "back to whatever the browser defaults to", which is
+                // what the page had before this check — not a guess that the
+                // default is light.
+                await page.emulateMedia({ colorScheme: null });
+                await page.evaluate((f) => {
+                    window.chesslines.board.flip(f ? 'b' : 'w');
+                }, wasFlipped);
+                await page.setViewportSize(original);
+            }
+        },
+    },
+
+    {
         name: 'the data layer loads in the browser',
         async run(page) {
             const n = await page.evaluate(() => window.chesslines.OPENINGS.length);

@@ -32,6 +32,16 @@
     --hint-from: rgb(24 76 150 / 0.85);
     --hint-to: rgb(24 76 150 / 1);
 
+    /* The halo behind a coordinate label. The page background, held just short
+     * of opaque: the label has to read the same on a light square and a dark
+     * one (issue #13), but it is scaffolding and should not punch a solid hole
+     * in the board to do it.
+     *
+     * Mixed from --bg rather than typed out, so re-tuning the background
+     * cannot leave the halo behind at the old colour. Both themes inherit this
+     * one line — the dark theme redefines --bg, and the halo follows. */
+    --coord-halo: color-mix(in srgb, var(--bg) 80%, transparent);
+
     --accent: #7a5c3e;
 }
 
