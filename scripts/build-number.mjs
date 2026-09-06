@@ -41,18 +41,21 @@ const VERSION = join(ROOT, 'js', 'version.js');
 // fixed point: writing it cannot change what it should be.
 const SHIPPED = ['index.html', 'css/', 'js/', ':!js/version.js'];
 
-function git(...args) {
-    return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+// `cwd` is the repo to ask. It defaults to this one and is overridden only by
+// the tests, which build a fixture repo with real commits — the behaviour here
+// is entirely about what history says, so there is nothing to assert without one.
+function git(cwd, ...args) {
+    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 }
 
-function countAt(ref) {
-    return Number(git('rev-list', '--count', ref, '--', ...SHIPPED));
+function countAt(cwd, ref) {
+    return Number(git(cwd, 'rev-list', '--count', ref, '--', ...SHIPPED));
 }
 
 // The number this checkout owes: what will be on Pages once everything here has
 // landed. This is what `npm run build-number` writes.
-export function buildNumber() {
-    return `b${countAt('HEAD')}`;
+export function buildNumber({ cwd = ROOT } = {}) {
+    return `b${countAt(cwd, 'HEAD')}`;
 }
 
 // Where "landed" is measured from. On `main` that is HEAD itself; on a lane it
@@ -63,9 +66,9 @@ export function buildNumber() {
 // fresh clone with no remote, or `main` itself before the first fetch. Then
 // every commit counts as landed, which is the old behaviour and the right one:
 // there is no lane to be ahead of.
-function landedRef() {
+function landedRef(cwd) {
     try {
-        git('rev-parse', '--verify', '--quiet', 'origin/main');
+        git(cwd, 'rev-parse', '--verify', '--quiet', 'origin/main');
     } catch {
         return 'HEAD';
     }
@@ -73,21 +76,45 @@ function landedRef() {
     // The merge base, not `origin/main` itself. A lane that has not rebased is
     // *behind* on other lanes' work as well as ahead on its own; the base is
     // the only point both agree on, so it is the number the lane was handed.
-    return git('merge-base', 'HEAD', 'origin/main');
+    return git(cwd, 'merge-base', 'HEAD', 'origin/main');
 }
 
 // The number that is live — the one js/version.js should be holding right now.
-export function landedBuildNumber() {
-    return `b${countAt(landedRef())}`;
+export function landedBuildNumber({ cwd = ROOT } = {}) {
+    return `b${countAt(cwd, landedRef(cwd))}`;
 }
 
-// Shipped commits on this lane that have not landed. Zero on `main`, which is
-// what makes the number written there final.
-export function pendingCommits() {
-    return countAt('HEAD') - countAt(landedRef());
+// Shipped commits on this checkout that have not landed. Zero on a `main` that
+// is at or behind `origin/main`, which is the launchpad's case and why the
+// number written at landing is final. A `main` carrying unpushed shipped commits
+// reports them as pending, which is correct — they have not reached Pages either.
+export function pendingCommits({ cwd = ROOT } = {}) {
+    return countAt(cwd, 'HEAD') - countAt(cwd, landedRef(cwd));
+}
+
+// Whether `origin/main` has moved since this branch was cut. Deriving the number
+// before rebasing onto it is wasted work at best: the value is written, the
+// rebase then replays it against a different history, and on #13's merge the
+// rebase dropped the bump as already-applied and left js/version.js behind what
+// history said (#22). The order is rebase, then derive.
+export function needsRebase({ cwd = ROOT } = {}) {
+    const base = landedRef(cwd);
+    if (base === 'HEAD') return false;
+
+    return base !== git(cwd, 'rev-parse', 'origin/main');
 }
 
 function main() {
+    if (needsRebase()) {
+        console.error(
+            'origin/main has moved since this branch was cut.\n' +
+            'Rebase first, then derive — otherwise the number is written against a\n' +
+            'history that is about to change:\n\n' +
+            '  git fetch origin && git rebase origin/main && npm run build-number\n',
+        );
+        process.exit(1);
+    }
+
     const next = buildNumber();
     const current = readFileSync(VERSION, 'utf8');
     const found = current.match(/BUILD = '(b\d+)'/);

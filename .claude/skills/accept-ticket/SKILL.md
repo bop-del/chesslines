@@ -219,12 +219,25 @@ only place in the flow that writes it:
 git fetch origin && git rebase origin/main
 npm run build-number
 git commit -am "Set the build number to what history says"   # only if it moved
+npm test                                                     # the number is a test
+git push --force-with-lease                                  # the rebase rewrote it
 ```
+
+`--force-with-lease`, not `--force`: the rebase rewrote this branch's history, so
+a plain push is rejected, and a plain `--force` would also discard a commit
+someone else had pushed to the lane. The lease refuses in that case instead.
+
+Re-run `npm test` after the bump rather than trusting the earlier green — this
+is the one commit in the flow that can change what the suite asserts.
 
 The rebase has to come first because it changes the answer: `main` may have
 moved by several shipped commits since the lane was cut, and a number derived
 before it is one the lane will have to write twice. #22 counted four of those
 landing on `main` in one day.
+
+**`build-number` refuses rather than trusting the order.** Run before the
+rebase, it exits non-zero and says to rebase first — the ordering is checked, not
+remembered, because a remembered step is what this ticket is about.
 
 A rebase also re-opens the hole it fills. On #13's merge the rebase reported
 `skipped previously applied commit` for the lane's own build-number commit —
