@@ -216,25 +216,17 @@ The workspace id is the one `/start-ticket` reported when it opened the lane;
 `herdr workspace list` has it if that is out of reach. Say that the message was
 sent, and stop — the launchpad does the removal, and this session ends with it.
 
-## Pinging when the checks go green
+## How the walk gets started
 
-This is the other half, and it happens **before** the walk above — at the end of
-`/implement`, when both gates pass and the card moves to `Needs review`.
+This skill does not start itself. The lane pings when both gates go green — at
+the end of `/implement`, not here — and `CLAUDE.md` has the two commands under
+*Lanes, and the session that opens them*.
 
-Nothing waits on anything. A lane that blocks waiting to be noticed is a lane
-holding a session open for no reason, and `herdr agent wait --until idle` would
-block the waiter besides. So the lane announces itself and stops:
-
-```bash
-herdr notification show "#<n> ready for review" --sound done
-herdr pane send-text "$HERDR_PANE_ID" "/accept-ticket <n>"
-```
-
-`pane send-text` types without submitting — deliberately. The walk is Boris's to
-start, and one keystroke starts it. Both of the alternatives submit: `agent
-prompt` sends the text and Enter, and so does `pane run` (its own help says so).
-Either would begin an acceptance walk with nobody watching it, and the walk is
-the one step of this flow an agent must not run alone.
+The part that matters for this skill: the ping **types** `/accept-ticket <n>`
+into the lane's input line without submitting it. That is deliberate, and it is
+the same rule as "never move a card to `Done` without asking", one step earlier.
+The walk is Boris's to start; a lane that submitted it would be running an
+acceptance walk with nobody watching.
 
 ## What not to do
 

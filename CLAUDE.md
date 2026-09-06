@@ -193,7 +193,7 @@ and its branch. `CONTEXT.md` defines **lane** and **launchpad**.
 
 **The session in the main clone is the launchpad, and it stays on `main`.** It
 opens lanes and starts agents in them; it never checks out a feature branch.
-This is not tidiness: while the main session sat on `feat/14-move-hint`, another
+This is not tidiness: while the launchpad sat on `feat/14-move-hint`, another
 session merged #14 and the main clone's working directory jumped to `main` on
 its own. One ticket, harmless — several at once, and lanes pull the ground out
 from under each other. So a ticket lives in its lane from claim to merge.
@@ -207,9 +207,13 @@ herdr pane send-text "$HERDR_PANE_ID" "/accept-ticket <n>"
 ```
 
 `send-text` types the command without submitting, so a keystroke starts the
-walk and nothing starts it unattended. Do not `herdr agent wait` on anything —
-a blocked lane is a session held open for no reason, and blocking the launchpad
-would stop it opening the next lane, which is the whole point.
+walk and nothing starts it unattended. The alternatives both submit — `agent
+prompt` and `pane run` each send the text and Enter — and an acceptance walk
+that starts itself is the `Done`-without-asking rule broken one step early.
+
+Do not `herdr agent wait` on anything. A blocked lane is a session held open for
+no reason, and a launchpad blocked on one lane cannot open the next, which is
+the whole point of lanes.
 
 Two things make parallel lanes painless rather than merely possible, and both
 were taxes paid deliberately: the build number is derived from history rather
