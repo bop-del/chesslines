@@ -55,6 +55,13 @@ they cannot disagree. See `triage-labels.md`.
   moving a card — an agent may do the mechanics, never the deciding. A card
   moved because every test passed rather than because Boris said so is the same
   lie, with more steps.
+
+  **The yes is the decision; the merge is the move.** `scripts/move-card.mjs
+  <n>` writes `Done`, and it runs after `gh pr merge`, not after the walk. The
+  deciding is unchanged — nothing runs it unless Boris said yes — but the card
+  and the merged PR can no longer disagree. Card #14 sat in `In progress` for a
+  day after its PR had merged and its issue had closed, because moving it was a
+  separate write nobody was reminded to make (#22).
 - **Every card is a real issue.** No draft items — a draft is a second source of
   truth that `gh issue list` cannot see. This applies to `Ideas` too: the cost is
   that `gh issue list` returns candidates alongside real work, which is accepted
@@ -92,8 +99,18 @@ gh project item-edit --id <item id> \
 | Done | `bafab4de` |
 
 Use these directly rather than re-deriving them. If one is rejected, re-read the
-field and fix this table:
+field and fix this table **and `scripts/move-card.mjs`**, which carries the same
+ids so that landing a lane does not have to shell out through this document:
 `gh project field-list 3 --owner bop-del --format json`.
+
+```bash
+node scripts/move-card.mjs <issue> [status]   # status defaults to Done
+```
+
+It looks the item id up on the board rather than deriving it from the issue
+number — they are different id spaces — leaves a card already in the target
+column alone, and fails loudly on an issue with no card, since that is otherwise
+indistinguishable from a successful no-op.
 
 **Adding or renaming a column resets every id and clears every card.** `gh`
 cannot change the *set* of options; that needs the GraphQL

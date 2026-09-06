@@ -183,9 +183,11 @@ whether to move the card to `Done`.
 
 On yes:
 
-- Move the card (`docs/agents/issue-tracker.md` has the ids; `Done` is
-  `bafab4de`).
 - Note anything that supersedes an earlier ticket's criteria, pointing at both.
+
+Do **not** move the card here. It moves in step 7, from the merge — a card
+reading `Done` in front of an unmerged branch is the state #22 found on #14,
+one step earlier. The yes is permission to land; landing is what moves it.
 
 **Then go straight to step 7 — the yes is the trigger, and nothing else asks
 for it.** The work is not landed until the PR is merged and the lane is gone,
@@ -250,8 +252,15 @@ things a fast-forward cannot do:
 ```bash
 gh pr create --title "<the ticket's title>" --body "<see below>"
 gh pr merge --rebase
+node scripts/move-card.mjs <n>          # the merge is what moves the card
 git push origin --delete <branch>
 ```
+
+**The card moves from the merge, not from the walk.** `move-card.mjs` reads the
+item id off the board and writes `Done`; it is safe to re-run and says so if the
+card is already there. Running it here rather than at step 6 means the card and
+the merged PR cannot disagree — which is exactly how #14 came to sit in
+`In progress` for a day after its PR had merged and its issue had closed.
 
 `--rebase`, so `main` keeps the straight history it has now. A merge commit per
 lane is the cost this repo does not have to pay.
@@ -277,11 +286,10 @@ the diff it is about. Put in it —
 - the `/code-review` findings and what was done about each,
 - `Closes #<n>`.
 
-Then confirm the issue actually closed rather than assuming the keyword worked,
-**and confirm the card actually reads `Done`.** Card #14 sat in `In progress`
-for a day after its PR merged and its issue closed — the move in step 6 is a
-separate write to a separate system, and nothing else notices when it is
-missed.
+Then confirm the issue actually closed rather than assuming the keyword worked.
+`move-card.mjs` reports the transition it made, so the card needs no separate
+check — but read what it printed. `already Done` before a merge means something
+moved the card early, and that is worth knowing.
 
 **Ask the launchpad to remove the lane.** Not self-removal: an agent cannot
 delete the directory its own process is running in without risking a
