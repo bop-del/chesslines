@@ -900,44 +900,6 @@ const checks = [
     },
 
     {
-        name: 'the variants page’s theme copy still matches base.css',
-        async run() {
-            // arrows.html repeats base.css's tokens so its theme switch can
-            // work on demand; CSS cannot share a declaration block between a
-            // media query and a plain selector without a build step, and there
-            // is no build step (ADR 0001). A copy that drifts is worse than no
-            // page at all — the variant would be judged against colours the app
-            // does not use — so the copy is checked rather than trusted.
-            const [base, page] = await Promise.all([
-                readFile(join(ROOT, 'css/base.css'), 'utf8'),
-                readFile(join(ROOT, 'arrows.html'), 'utf8'),
-            ]);
-            // The tokens as base.css's dark block defines them.
-            const dark = base.match(/@media \(prefers-color-scheme: dark\)[\s\S]*?\n\}/)?.[0];
-            assert(dark, 'could not find the dark theme block in css/base.css');
-            const tokens = (css) => {
-                const found = new Map();
-                for (const [, name, value] of css.matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
-                    found.set(name, value.trim());
-                }
-                return found;
-            };
-            const want = tokens(dark);
-            const got = tokens(page.match(/:root\[data-theme="dark"\][\s\S]*?\n\}/)?.[0] ?? '');
-            assert(got.size > 0, 'could not find the dark theme copy in arrows.html');
-
-            const drifted = [...got].filter(([name, value]) =>
-                want.has(name) && want.get(name) !== value);
-            assert(
-                drifted.length === 0,
-                `arrows.html has drifted from css/base.css: ${drifted
-                    .map(([n, v]) => `${n} is ${v}, base.css says ${want.get(n)}`)
-                    .join('; ')}`,
-            );
-        },
-    },
-
-    {
         name: 'nothing counts how the child did',
         async run(page) {
             // The no-streak rule, asserted rather than assumed: the app must
@@ -1069,6 +1031,12 @@ const checks = [
             // Every state page present is checked, rather than one by name:
             // this repo builds one per design ticket, and a check naming a
             // single file silently stops covering the next one.
+            //
+            // #27 shipped this check named after arrows.html, and #29 arrived
+            // with styles.html needing the identical guard — which is the
+            // failure the loop prevents. The two ran side by side for one
+            // rebase; this one replaces both, having been shown to catch a
+            // drifted --marker in arrows.html exactly as its predecessor did.
             const base = await readFile(join(ROOT, 'css/base.css'), 'utf8');
             const dark = base.match(/@media \(prefers-color-scheme: dark\)[\s\S]*?\n\}/)?.[0];
             assert(dark, 'could not find the dark theme block in css/base.css');
