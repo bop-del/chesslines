@@ -100,3 +100,25 @@ test('a rejected write fails rather than reporting a move that did not happen', 
     // top of that is the same lie the board rules exist to prevent.
     assert.throws(() => run(['22'], { fail: true }));
 });
+
+test('the status ids match the ones the tracker doc publishes', () => {
+    // The ids live in two places: this script, and the table in
+    // docs/agents/issue-tracker.md that a human reads. Adding or renaming a
+    // column mints new ids for *every* option, so the two drift in one move —
+    // and a stale id does not error, it writes the wrong column.
+    const doc = readFileSync(join(ROOT, 'docs', 'agents', 'issue-tracker.md'), 'utf8');
+    const script = readFileSync(SCRIPT, 'utf8');
+
+    const published = [...doc.matchAll(/^\| (\w[\w ]*?) \| `(\w+)` \|$/gm)]
+        .map(([, status, id]) => [status, id]);
+
+    assert.ok(published.length >= 6, 'the status table should still be in the tracker doc');
+
+    for (const [status, id] of published) {
+        assert.match(
+            script,
+            new RegExp(`'${status}': '${id}'`),
+            `${status} is '${id}' in the tracker doc; move-card.mjs disagrees`,
+        );
+    }
+});
