@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>chesslines — chrome states</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/explain.css">
+<style>
+/* Page furniture, and the proposed rules — nothing else.
+ *
+ * The "today" column is the real thing: css/base.css and css/explain.css are
+ * loaded above and style it, untouched. Nothing on this page restates a
+ * current rule, so a column that looks wrong here looks wrong in the app.
+ *
+ * The "proposed" column is every rule this ticket wants to add, scoped under
+ * `.proposed`. That scoping is what lets one page show both answers at once,
+ * and it is also the whole cost of the page: when a treatment is chosen, its
+ * rules move into css/ and lose the prefix. They are written here in the order
+ * and the shape they will have there, so that move is a cut and paste rather
+ * than a rewrite.
+ *
+ * Not a mockup. #13 is why: the coordinates read fine on a desktop and were
+ * 8.2px on the phone. A treatment judged against invented CSS tells us about
+ * the invention.
+ *
+ * No link from index.html. This page is for choosing, and then it goes. */
+
+body { padding-bottom: 4rem; }
+
+.page { max-width: 46rem; margin: 0 auto; }
+
+.intro {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0 0 1.5rem;
+    line-height: 1.5;
+    max-width: 34rem;
+}
+
+.state {
+    margin: 0 0 2.5rem;
+    border-top: 1px solid var(--edge);
+    padding-top: 1rem;
+}
+
+.state > h2 {
+    font-size: 0.95rem;
+    margin: 0 0 0.15rem;
+}
+
+.state > p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0 0 1rem;
+    max-width: 34rem;
+    line-height: 1.45;
+}
+
+/* Side by side on a desktop, stacked on the phone — where the choice is
+ * actually made. Stacked is not a downgrade here: the two treatments are
+ * compared by scrolling one past the other at the width they will ship at,
+ * which is closer to the real question than a shrunken pair. */
+.pair {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 40rem) {
+    .pair { grid-template-columns: 1fr 1fr; }
+}
+
+.pair > section { margin: 0; min-width: 0; }
+
+.label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: 0 0 0.5rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A frame around each specimen, so "where does this treatment end" is never a
+ * guess. It belongs to the page, not to either answer: both columns get the
+ * same one, so it cannot flatter the treatment that removes its own borders. */
+.frame {
+    border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+    border-radius: 4px;
+    padding: 0.75rem;
+}
+
+/* The phone width. 375px is the iPhone SE — the narrowest thing this has to
+ * work on, and the width every layout argument in this repo is measured at.
+ *
+ * The pair collapses to one column first. Side by side, each column is already
+ * narrower than 375px on most desktops, so a `width: 375px` on the frame alone
+ * does nothing and the toggle silently shows the same layout twice — which is
+ * what the first pass of this page did.
+ *
+ * `max-width` is deliberately not set: this specimen must stay 375px wide even
+ * if that means the page scrolls sideways. A phone specimen that shrinks to fit
+ * the review window is not a phone specimen. */
+body.phone .pair { grid-template-columns: 1fr; }
+
+body.phone .frame {
+    width: 375px;
+    /* The app's own phone padding, from base.css's max-width:30rem rule.
+     * Without it this specimen is 375px of content where the phone gives the
+     * content ~367px. */
+    padding: 0.25rem;
+}
+
+.controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 0 0 1.5rem;
+}
+
+.controls button { min-height: 36px; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+
+.controls button[aria-pressed="true"] {
+    background: var(--fg);
+    color: var(--bg);
+    border-color: var(--fg);
+}
+
+/* The theme switch, so both themes can be judged on demand rather than at
+ * sunset.
+ *
+ * These values are copied from css/base.css, and copies drift. CSS cannot
+ * share one declaration block between a media query and a plain selector
+ * without a build step, and this repo has no build step (ADR 0001), so the
+ * copy is unavoidable. What is avoidable is not noticing: scripts/verify.mjs
+ * reads both files and fails if any token here disagrees with base.css. */
+:root[data-theme="light"] {
+    --bg: #f4f1ea;
+    --fg: #23201c;
+    --muted: #6b645a;
+    --edge: #3a342c;
+    --square-light: #f0d9b5;
+    --square-dark: #b58863;
+    --accent: #7a5c3e;
+}
+
+:root[data-theme="dark"] {
+    --bg: #171614;
+    --fg: #e8e3d9;
+    --muted: #9a938a;
+    --edge: #0d0c0b;
+    --square-light: #d8c2a0;
+    --square-dark: #9c7350;
+    --accent: #c9a97e;
+}
+
+/* ════ PROPOSED ══════════════════════════════════════════════════════════════
+ * Everything below is the ticket's proposal. Scoped under `.proposed` so it
+ * cannot reach the column beside it. */
+
+/* ── Tokens ──────────────────────────────────────────────────────────────────
+ * The accent, and a type scale.
+ *
+ * --accent is dead in the app — it is declared in base.css and used nowhere.
+ * It is also a terracotta, which is one of the commonest tells of a generated
+ * page. So it is replaced rather than given a job.
+ *
+ * The replacement is not invented. #184c96 is the blue the move hint already
+ * uses, already argued for in base.css ("blue rather than green or yellow: the
+ * board already spends those on .hint and .selected"), and blue against
+ * wood-brown is the contrast chess diagrams have used forever. The dark theme
+ * takes the hint's own dark value for the same reason: the accent and the mark
+ * on the board stay one idea in both themes rather than two blues that nearly
+ * match.
+ *
+ * --bg stays #f4f1ea, and this is worth writing down because it is also on
+ * that list of tells. Here it is not one: --square-light is #f0d9b5, the
+ * standard chessboard cream, and the page background is derived from it. The
+ * page is built around a board, not around a look. */
+.proposed {
+    --accent: #184c96;
+
+    /* Four steps, replacing seven ad-hoc sizes chosen one at a time (0.7, 0.75,
+     * 0.8 ×5, 0.85 ×2, 0.9, 1, 1.1rem). The point is not that seven is too many
+     * to look at — it is that the eighth gets invented by whoever adds the next
+     * element, because there is nothing to pick from. Four steps are a thing to
+     * pick from.
+     *
+     * The ratio is tight, near 1.15. These are all small sizes on a 375px
+     * screen: a wide scale buys a display size this page has no use for and
+     * pays for it at the small end, where the idea sentence lives and where
+     * unreadable is a real outcome (#13). */
+    --t-xs: 0.75rem;   /* build number, credits — scaffolding */
+    --t-sm: 0.85rem;   /* idea sentences, quiet controls */
+    --t-md: 1rem;      /* body, move text — the content */
+    --t-lg: 1.1rem;    /* titles */
+}
+
+:root[data-theme="dark"] .proposed { --accent: rgb(125 180 240); }
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .proposed { --accent: rgb(125 180 240); }
+}
+
+/* ── The list ────────────────────────────────────────────────────────────────
+ * Twelve identically bordered boxes become twelve rows separated by space.
+ *
+ * On a 375px screen the border and its padding cost horizontal room on every
+ * row, and what they buy is a repeated outline around content that was never
+ * ambiguous — the name is bold, the sentence is not, and a name followed by a
+ * sentence does not need a box to say where it ends. The room goes to the idea
+ * sentence, which is the part that is actually information.
+ *
+ * The row stays a <button>: this is a change of appearance, not of behaviour,
+ * and the tap target is the whole row either way. */
+.proposed .line {
+    border: 0;
+    border-radius: 0;
+    padding: 0.5rem 0.15rem;
+    /* Below Apple's 44px only as a floor on the element — two lines of text at
+     * this scale clear it on their own, and a one-line row keeps the minimum
+     * from base.css's `button` rule, which is not overridden here. */
+    gap: 0.2rem;
+}
+
+.proposed .lines { gap: 0.15rem; }
+
+.proposed .line-idea {
+    font-size: var(--t-sm);
+    /* The sentence gets the width the borders were using. */
+    max-width: 34ch;
+}
+
+/* Pressed state has to come from somewhere now that there is no border to
+ * darken. A tint of the page's own ink, not of the accent: the accent is
+ * spoken for by the tabs, and a list row lighting up blue on every tap would
+ * spend the one loud colour on the quietest thing on the screen. */
+.proposed .line:hover,
+.proposed .line:focus-visible {
+    background: color-mix(in srgb, var(--fg) 7%, transparent);
+    border-radius: 4px;
+}
+
+/* An opening whose move texts are not written yet. The greyed treatment stays
+ * — it is doing real work and is already argued in explain.css — but the
+ * dashed box it used to be carried by is gone with the rest of them.
+ *
+ * A dashed rule *under* the row was the obvious replacement and is wrong: at
+ * the bottom of a list it reads as a divider between sections rather than as a
+ * property of the row, and against the end of a container it merges with the
+ * edge. The dash moves to the left instead, where it marks this row and only
+ * this row, and where nothing else in the list has a mark to be confused with.
+ *
+ * Kept at 0.45 to match what ships today — the row is genuinely inert, and
+ * unlike the greyed tab it carries no sentence that has to stay readable. */
+.proposed .line:disabled {
+    opacity: 0.45;
+    border-left: 2px dashed var(--edge);
+    padding-left: 0.5rem;
+    border-radius: 0;
+}
+
+/* The side heading. Sentence case, not the tracked-out uppercase it is today:
+ * an all-caps label above every heading is template chrome, and "Playing
+ * White" is a phrase a nine-year-old reads, not a category marker. */
+.proposed .group h2 {
+    font-size: var(--t-sm);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--fg);
+    margin: 0 0 0.5rem;
+}
+
+.proposed .group + .group { margin-top: 1.5rem; }
+
+/* ── The tabs ────────────────────────────────────────────────────────────────
+ * The one loud thing on the screen, and the only place this ticket adds rather
+ * than subtracts. They are first on screen, they are new, and they carry a
+ * sentence that has to read as an explanation rather than as a locked door
+ * (#28).
+ *
+ * Not a segmented control and not a pill row: a tab that cannot be used yet
+ * has to say why, and a condition does not fit inside a pill. So the tabs are
+ * a row of labels over a shared baseline, with the active one marked by a
+ * weight of accent under it — which leaves the greyed tabs room for their
+ * sentence underneath. */
+.proposed .tabs {
+    display: flex;
+    /* Stretch, so a tab with a two-line condition does not leave the tab beside
+     * it floating with its underline halfway up the row. Every tab is as tall
+     * as the tallest, and every underline sits on the same baseline. */
+    align-items: stretch;
+    gap: 0.25rem;
+    margin: 0 0 1.25rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--edge) 25%, transparent);
+}
+
+.proposed .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    /* Not a box. The tabs are the loud element, and a border around each of
+     * them would make them four boxes on a screen this ticket is emptying of
+     * boxes. The mark is the underline. */
+    border: 0;
+    border-radius: 0;
+    background: none;
+    padding: 0.5rem 0.35rem 0.55rem;
+    text-align: left;
+    /* The active mark, drawn in the element's own box so a tab does not change
+     * height when it becomes active. */
+    box-shadow: inset 0 -2px 0 transparent;
+}
+
+.proposed .tab-name {
+    font-size: var(--t-md);
+    font-weight: 600;
+    color: var(--muted);
+    /* The names line up across the row whatever the conditions below them do:
+     * a one-word tab and a tab carrying two lines of explanation both start
+     * their name on the same line. Without this the names sit at three
+     * different heights and the row reads as three unrelated things. */
+    flex: 0 0 auto;
+}
+
+/* The condition. Not a tooltip and not a badge — it is on screen, unasked for,
+ * because its job is to be read once and then stop mattering.
+ *
+ * "once you've chosen an opening", not "0/1 chosen" and not a progress bar
+ * toward unlocking: a number that fills up is a promised reward, which is the
+ * one thing the spec forbids (announced rewards decay to d=-0.20 over a year;
+ * unexpected ones showed no undermining at all). A sentence naming the route
+ * counts nothing and cannot be lost. */
+.proposed .tab-when {
+    font-size: var(--t-xs);
+    font-weight: 400;
+    color: var(--muted);
+    line-height: 1.25;
+    text-align: left;
+    /* Wraps rather than truncates. A condition cut off mid-word is worse than
+     * no condition: it reads as a broken label instead of an explanation. */
+    white-space: normal;
+}
+
+.proposed .tab[aria-selected="true"] {
+    box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.proposed .tab[aria-selected="true"] .tab-name { color: var(--fg); }
+
+/* Available, not current. Full-strength name, no underline — the difference
+ * between "you are here" and "you can go here" is the mark, not the ink. */
+.proposed .tab:not([disabled]):not([aria-selected="true"]) .tab-name {
+    color: var(--fg);
+}
+
+.proposed .tab:disabled {
+    /* Not base.css's 0.45. At that strength the condition sentence is the
+     * smallest text on the page at under half opacity, which is the #13 failure
+     * again — a thing that is there to be read, rendered unreadable to signal
+     * that it is quiet. The tab is muted by colour instead, and the sentence
+     * keeps its contrast. */
+    opacity: 1;
+    cursor: default;
+}
+
+.proposed .tab:disabled .tab-name { color: var(--muted); }
+
+/* ── The header ──────────────────────────────────────────────────────────────
+ * The title steps down. It is the app's name on every screen, which makes it
+ * the least informative text on the page — today it is set larger than the
+ * move text, which is the most informative. */
+.proposed .topbar h1 {
+    font-size: var(--t-md);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--muted);
+}
+
+.proposed .lang { font-size: var(--t-sm); }
+
+/* ── The Explain controls ────────────────────────────────────────────────────
+ * The two play controls carry the accent as a border rather than a fill: a
+ * filled button beside a chessboard competes with the pieces, and these two
+ * are pressed dozens of times a line. The hint toggle stays as quiet as it is
+ * today — it is the least important thing in the row and never grows to match
+ * them (already argued in explain.css). */
+.proposed .explain-controls .show,
+.proposed .explain-controls .again {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    color: var(--accent);
+    font-size: var(--t-sm);
+}
+
+.proposed .explain-controls .show:hover,
+.proposed .explain-controls .again:hover,
+.proposed .explain-controls .show:focus-visible,
+.proposed .explain-controls .again:focus-visible {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.proposed .explain-text { font-size: var(--t-md); }
+.proposed .explain-title { font-size: var(--t-lg); }
+.proposed .explain-side { font-size: var(--t-sm); }
+.proposed .explain-intro { font-size: var(--t-sm); }
+.proposed .back { font-size: var(--t-sm); }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+<h1>Chrome states</h1>
+
+<p class="intro">
+Everything around the board, current against proposed. The real
+<code>css/</code> is loaded — the left column is the app as it stands, and the
+right one is what #29 wants to do to it. Choose per state; nothing here is
+all-or-nothing. Then the chosen rules move into <code>css/</code> and this page
+goes.
+</p>
+
+<div class="controls">
+    <button id="theme-light" aria-pressed="false">Light</button>
+    <button id="theme-dark" aria-pressed="false">Dark</button>
+    <button id="theme-system" aria-pressed="true">System</button>
+    <button id="width">Show at 375px</button>
+</div>
+
+<!-- ── The tabs ─────────────────────────────────────────────────────────── -->
+<section class="state">
+    <h2>The tabs</h2>
+    <p>
+        New in #28, and the one place this ticket adds. Openings is live; Mine
+        and Practise are greyed and each says what opens it. There is no
+        “current” column — these do not exist yet.
+    </p>
+    <div class="pair">
+        <section>
+            <p class="label">proposed</p>
+            <div class="frame proposed">
+                <div class="tabs" role="tablist">
+                    <button class="tab" role="tab" aria-selected="true">
+                        <span class="tab-name">Openings</span>
+                    </button>
+                    <button class="tab" role="tab" aria-selected="false" disabled>
+                        <span class="tab-name">Mine</span>
+                        <span class="tab-when">once you’ve adopted a line</span>
+                    </button>
+                    <button class="tab" role="tab" aria-selected="false" disabled>
+                        <span class="tab-name">Practise</span>
+                        <span class="tab-when">once you’ve chosen an opening</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+        <section>
+            <p class="label">proposed — Mine available, Practise not</p>
+            <div class="frame proposed">
+                <div class="tabs" role="tablist">
+                    <button class="tab" role="tab" aria-selected="true">
+                        <span class="tab-name">Openings</span>
+                    </button>
+                    <button class="tab" role="tab" aria-selected="false">
+                        <span class="tab-name">Mine</span>
+                    </button>
+                    <button class="tab" role="tab" aria-selected="false" disabled>
+                        <span class="tab-name">Practise</span>
+                        <span class="tab-when">once something is due</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+</section>
+
+<!-- ── The list ─────────────────────────────────────────────────────────── -->
+<section class="state">
+    <h2>The opening list</h2>
+    <p>
+        Twelve identically bordered boxes today. The proposal drops the boxes
+        and separates the rows with space, which returns the horizontal room to
+        the idea sentence. All twelve openings have their texts now, so the
+        last row here is a constructed not-ready line — that state still ships
+        in <code>list.js</code>, and it is what the next opening looks like on
+        the day it is added.
+    </p>
+    <div class="pair">
+        <section>
+            <p class="label">today</p>
+            <div class="frame" id="list-today"></div>
+        </section>
+        <section>
+            <p class="label">proposed</p>
+            <div class="frame proposed" id="list-proposed"></div>
+        </section>
+    </div>
+</section>
+
+<!-- ── The header ───────────────────────────────────────────────────────── -->
+<section class="state">
+    <h2>The header and the language toggle</h2>
+    <p>
+        The app’s name appears on every screen and says the least of anything on
+        it — today it is set larger than the move text. The proposal steps it
+        down and leaves the toggle where it is.
+    </p>
+    <div class="pair">
+        <section>
+            <p class="label">today</p>
+            <div class="frame">
+                <div class="topbar">
+                    <h1>chesslines</h1>
+                    <button class="lang">Deutsch</button>
+                </div>
+                <h2 class="screen-title">Openings</h2>
+            </div>
+        </section>
+        <section>
+            <p class="label">proposed</p>
+            <div class="frame proposed">
+                <div class="topbar">
+                    <h1>chesslines</h1>
+                    <button class="lang">Deutsch</button>
+                </div>
+            </div>
+        </section>
+    </div>
+</section>
+
+<!-- ── The Explain controls ─────────────────────────────────────────────── -->
+<section class="state">
+    <h2>The Explain controls</h2>
+    <p>
+        The row under the board. The proposal gives the two play controls the
+        accent as an outline and leaves the hint toggle as quiet as it is. Shown
+        with the longest German labels, which is where the row is tightest.
+    </p>
+    <div class="pair">
+        <section>
+            <p class="label">today — English</p>
+            <div class="frame">
+                <p class="explain-text">The bishop points at f7, the weakest square in Black’s position.</p>
+                <div class="explain-controls">
+                    <button class="show">Show me</button>
+                    <button class="again">Play it again</button>
+                    <button class="hint-toggle">Hint on</button>
+                </div>
+            </div>
+        </section>
+        <section>
+            <p class="label">proposed — English</p>
+            <div class="frame proposed">
+                <p class="explain-text">The bishop points at f7, the weakest square in Black’s position.</p>
+                <div class="explain-controls">
+                    <button class="show">Show me</button>
+                    <button class="again">Play it again</button>
+                    <button class="hint-toggle">Hint on</button>
+                </div>
+            </div>
+        </section>
+        <section>
+            <p class="label">today — German, the longest labels</p>
+            <div class="frame">
+                <div class="explain-controls">
+                    <button class="show">Zeig es mir</button>
+                    <button class="again">Nochmal spielen</button>
+                    <button class="hint-toggle">Tipp an</button>
+                </div>
+            </div>
+        </section>
+        <section>
+            <p class="label">proposed — German, the longest labels</p>
+            <div class="frame proposed">
+                <div class="explain-controls">
+                    <button class="show">Zeig es mir</button>
+                    <button class="again">Nochmal spielen</button>
+                    <button class="hint-toggle">Tipp an</button>
+                </div>
+            </div>
+        </section>
+    </div>
+</section>
+
+<!-- ── The head of a line ───────────────────────────────────────────────── -->
+<section class="state">
+    <h2>The head of a line</h2>
+    <p>
+        Back, title, side and intro, above the board. The proposal only moves
+        these onto the type scale — nothing here is restructured.
+    </p>
+    <div class="pair">
+        <section>
+            <p class="label">today</p>
+            <div class="frame">
+                <div class="explain-head">
+                    <button class="back">All openings</button>
+                    <h2 class="explain-title">Italian Game</h2>
+                    <p class="explain-side">You play White</p>
+                </div>
+                <p class="explain-intro">Point the bishop at f7 and get the king safe early.</p>
+            </div>
+        </section>
+        <section>
+            <p class="label">proposed</p>
+            <div class="frame proposed">
+                <div class="explain-head">
+                    <button class="back">All openings</button>
+                    <h2 class="explain-title">Italian Game</h2>
+                    <p class="explain-side">You play White</p>
+                </div>
+                <p class="explain-intro">Point the bishop at f7 and get the king safe early.</p>
+            </div>
+        </section>
+    </div>
+</section>
+
+</div>
+
+<script type="module">
+// The list, built by the app's own List class against the app's own data.
+//
+// Not hand-written markup: a specimen whose classes drifted from what list.js
+// actually emits would be a page reviewing something the app does not render.
+// The one thing supplied here is the language, since there is no app state to
+// read it from.
+import { List } from './js/ui/list.js';
+import { OPENINGS } from './js/data/openings.js';
+
+// Enough rows to show the rhythm, and the last one greyed.
+//
+// All twelve openings now have their move texts, so the not-ready state cannot
+// be sampled out of the data any more — but list.js still renders it (its
+// `ready` guard covers a half-written line, and explain.css argues for showing
+// one), and #29 asks for that treatment to be carried over rather than
+// dropped. So it is constructed here: one line with its moves stripped, which
+// is exactly the shape list.js checks for. Reviewing the greyed row against a
+// state the data cannot currently produce is the point — it is what the next
+// opening looks like on the day it is added.
+const ready = [
+    ...OPENINGS.filter((l) => l.side === 'w').slice(0, 3),
+    ...OPENINGS.filter((l) => l.side === 'b').slice(0, 2),
+];
+const sample = [...ready, { ...OPENINGS.find((l) => l.side === 'b' && !ready.includes(l)), moves: [] }];
+
+for (const id of ['list-today', 'list-proposed']) {
+    // onPick does nothing: this page shows states, it does not walk lines.
+    new List(document.getElementById(id), { onPick: () => {} }).render(sample, 'en');
+}
+
+// ── The controls ────────────────────────────────────────────────────────────
+
+const themes = { 'theme-light': 'light', 'theme-dark': 'dark', 'theme-system': null };
+
+for (const [id, value] of Object.entries(themes)) {
+    document.getElementById(id).addEventListener('click', () => {
+        if (value) document.documentElement.dataset.theme = value;
+        else delete document.documentElement.dataset.theme;
+        for (const other of Object.keys(themes)) {
+            document.getElementById(other).setAttribute('aria-pressed', String(other === id));
+        }
+    });
+}
+
+// The phone width, on demand. 375px is the iPhone SE — the narrowest thing
+// this has to work on, and the width every layout argument in this repo is
+// measured at. On a desktop the pair sits side by side and neither column is
+// at a phone width, so the question the page exists to answer is not on
+// screen until this is pressed.
+const width = document.getElementById('width');
+width.addEventListener('click', () => {
+    const on = document.body.classList.toggle('phone');
+    width.textContent = on ? 'Show at full width' : 'Show at 375px';
+    width.setAttribute('aria-pressed', String(on));
+});
+</script>
+
+</body>
+</html>
