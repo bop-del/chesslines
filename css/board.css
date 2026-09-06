@@ -140,6 +140,11 @@
     --hint-ring: 0.6cqi;
     --hint-ring-strong: 1.4cqi;
     --hint-inset: 1cqi;
+    /* The readable floor, for the short-viewport case where svh shrinks the
+     * board below what its width alone implies. Named rather than inlined so
+     * the verification run can read the intended floor off the board instead
+     * of restating the number and drifting from it (issue #13). */
+    --coord-min: 11px;
 }
 
 /* ── Coordinates ─────────────────────────────────────────────────────────────
@@ -151,12 +156,44 @@
  * never be both a move target and unoccupied edge scenery at the same moment,
  * and the target rule comes later in the cascade, so it wins when it matters. */
 
+/* Three things made these unreadable, and they compounded (issue #13): 8.2px
+ * on a 375px screen, halved by an opacity, in no colour of their own — so a
+ * label sat brown-on-brown on a dark square and beige-on-beige on a light one.
+ *
+ * `cqi` off the board, the way the hint ring does it: the label belongs to the
+ * square, so it should scale with the square and not with the window. 2.2vw
+ * did neither well — 8.2px on a phone, and 28px on a wide desktop where the
+ * board has stopped growing at its 40rem cap. 3.2cqi is ~11.5px on an iPhone
+ * SE and stays proportionate all the way up, with --coord-min as the floor.
+ *
+ * The colour is themed, and the halo is mixed from the page background, so the
+ * dark theme needs no second rule here.
+ *
+ * The halo is what makes one colour work on both square tones. Bare, the worst
+ * pairing is the dark theme's light --fg on the *light* square — 1.35:1, which
+ * is no contrast at all; with the halo every combination in both themes clears
+ * 9:1. The point is less the number than that it is now the same number
+ * everywhere, instead of depending on which square the label happened to land
+ * on. */
 .board.coords .square[data-rank]::before,
 .board.coords .square[data-file]::after {
     position: absolute;
-    font-size: min(0.6rem, 2.2vw);
-    font-weight: 600;
-    opacity: 0.5;
+    font-size: max(var(--coord-min), 3.2cqi);
+    /* Back to normal weight. The 600 was compensating for the opacity — bold
+     * was the only way a half-transparent label registered at all. With real
+     * contrast it is not needed, and dropping it is what keeps the labels
+     * scaffolding rather than content now that they are bigger and darker.
+     * --muted would be the other lever, but it falls to 3.8:1 on the worst
+     * square and this bug was the labels being too faint to read. */
+    font-weight: 400;
+    color: var(--fg);
+    /* Four offsets rather than a blur: a blur at this size grazes the glyph
+     * and mostly reads as mud. This is a 1px outline that stays crisp. */
+    text-shadow:
+        0 1px 0 var(--coord-halo),
+        0 -1px 0 var(--coord-halo),
+        1px 0 0 var(--coord-halo),
+        -1px 0 0 var(--coord-halo);
     pointer-events: none;
     line-height: 1;
 }
@@ -169,8 +206,6 @@
 
 .board.coords .square[data-file]::after {
     content: attr(data-file);
-    bottom: 3px;
-    right: 4px;
     /* Reset the dot geometry the target rules would otherwise impose. */
     width: auto;
     height: auto;
