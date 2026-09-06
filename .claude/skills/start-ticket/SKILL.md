@@ -18,25 +18,15 @@ The first step of the flow, and the bookend to `/accept-ticket`:
 starts agents in them. It does not check out a feature branch, and it does not
 build anything itself.
 
-## Why the launchpad never branches
+**Lane** and **launchpad** are defined in `CONTEXT.md`; why the launchpad never
+branches, and what it costs when it does, is in `CLAUDE.md` under *Lanes, and
+the session that opens them*. Read that before changing anything here — this
+skill is the mechanics, and the reasoning lives there.
 
-Measured, not assumed. While the main session sat on `feat/14-move-hint`, a
-second session merged #14 — and the main clone's working directory jumped to
-`main` with nobody touching it. One ticket, harmless. Several at once, and lanes
-pull the ground out from under each other mid-build.
-
-So every ticket lives entirely in its own lane, merge included. `CONTEXT.md`
-defines both terms:
-
-- **Launchpad** — this session, in the main clone, always on `main`. Addressable
-  as the Herdr agent `launchpad`.
-- **Lane** — one ticket's isolated place to work: a git worktree for the files,
-  plus a Herdr workspace and agent for the session.
-
-**Both halves are required.** A Herdr pane isolates the session; a worktree
-isolates the files. Two agents in two panes of the same clone share a working
-directory and a branch — observed while building #14, where `git worktree list`
-still showed one entry. A pane alone is not a lane.
+One consequence is worth repeating, because this skill is where it gets broken:
+**a Herdr pane on its own is not a lane.** The pane isolates the session; the
+worktree isolates the files. Step 4 does both in one call, and doing only the
+first leaves two agents sharing a working directory and a branch.
 
 ## 1. Resolve the ticket
 
@@ -114,8 +104,13 @@ gitignored, and Playwright's Chromium is not in git — without it the lane cann
 run `npm test` at all, let alone `scripts/verify.mjs`:
 
 ```bash
-ln -s ~/code/chesslines/node_modules <lane-path>/node_modules
+ln -s "$(git rev-parse --path-format=absolute --git-common-dir)/../node_modules" \
+  <lane-path>/node_modules
 ```
+
+Take the source from git rather than typing `~/code/chesslines`: the common git
+dir is the main clone's, whichever clone that is, and the launcher was just made
+path-agnostic for the same reason.
 
 **Then run the suite in the lane, before handing it to an agent.** A lane that
 starts red wastes a whole session, and the failure is usually not the lane: when
@@ -130,12 +125,14 @@ herdr agent start lane<n> --kind claude --pane <root-pane-id> \
   -- --plugin-dir ~/code/mattpocock-skills
 ```
 
-**The `--` passthrough is not optional.** `herdr agent start` launches a bare
-`claude`, and the engineering skills are not registered anywhere persistent —
-they are not in `enabledPlugins` in `~/.claude/settings.json` and reach a
-session only through `--plugin-dir`. Without it the lane has no `/implement`, no
-`/tdd`, no `/code-review`; the first attempt at #15's own lane died on exactly
-this, with `/mattpocock-skills:implement` answering "Unknown command".
+**The `--` passthrough is not optional.** Measured: the first attempt at #15's
+own lane died on exactly this, with `/mattpocock-skills:implement` answering
+"Unknown command", and adding `--plugin-dir` fixed it — confirmed by invoking a
+skill, not by reading the command line. The mechanism, as far as it was traced:
+`herdr agent start` launches a bare `claude`, and the engineering skills are not
+registered persistently for this machine's Claude, so they reach a session only
+through `--plugin-dir`. Without it the lane has no `/implement`, no `/tdd`, no
+`/code-review`.
 
 What hides it: `/start-ticket` and `/accept-ticket` *do* work in a lane, because
 they live in `.claude/skills/` inside the repo and are plugin-independent. Only

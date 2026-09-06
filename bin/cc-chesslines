@@ -20,15 +20,24 @@
 
 SKILLS="$HOME/code/mattpocock-skills"
 
-# A first argument that is not a flag is the directory to start in.
+# A first argument that is not a flag is the directory to start in. It must be
+# absolute: /start-ticket passes the path out of a Herdr response, and a
+# relative one would resolve against whatever cwd the caller happened to have.
 case "$1" in
-  -*|"") REPO="$HOME/code/chesslines" ;;
-  *)     REPO="$1"; shift ;;
+  /*) REPO="$1"; shift ;;
+  "") shift; REPO="$HOME/code/chesslines" ;;
+  *)  REPO="$HOME/code/chesslines" ;;
 esac
 
-if ! cd "$REPO"; then
-  echo "✗ $REPO not found"
+if [ ! -d "$REPO" ]; then
+  echo "✗ $REPO is not a directory"
   # `return` when sourced, `exit` when run directly — exit would close the shell.
+  return 1 2>/dev/null || exit 1
+fi
+
+# Quiet on failure like every other check here, rather than leaking cd's stderr.
+if ! cd "$REPO" 2>/dev/null; then
+  echo "✗ cannot enter $REPO"
   return 1 2>/dev/null || exit 1
 fi
 
