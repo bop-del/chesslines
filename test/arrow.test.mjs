@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { centre, points, DEFAULTS } from '../js/board/arrow.js';
+import { centre, points, path, DEFAULTS } from '../js/board/arrow.js';
 
 // The arrow's geometry is pure arithmetic in a 0 0 8 8 viewBox, which is the
 // whole reason it was written that way: the shape can be checked here in
 // milliseconds, and the browser run is left to answer the questions these
 // cannot — whether it reads, and whether it swallows taps.
 
-const parse = (s) => s.split(' ').map((p) => p.split(',').map(Number));
+const parse1 = (s) => s.split(',').map(Number);
+const parse = (s) => s.split(' ').map(parse1);
 
 test('a square maps to the centre of its cell', () => {
     assert.deepEqual(centre('a8'), { x: 0.5, y: 0.5 });
@@ -88,4 +89,38 @@ test('every point stays on the board', () => {
             assert.ok(x >= 0 && x <= 8 && y >= 0 && y <= 8, `${from}${to}: ${x},${y}`);
         }
     }
+});
+
+test('the straight path is the polygon, corner for corner', () => {
+    // `bow: 0` must be exactly the straight arrow and not a curve that happens
+    // to look flat — otherwise the shipped arrow is the untested code path.
+    const d = path('e2', 'e4');
+    assert.ok(!d.includes('Q'), `a straight arrow should have no curve: ${d}`);
+    // Compared as numbers: the path builder round-trips through Number on the
+    // way out, so "4.580" arrives as "4.58" — the same point, spelled shorter.
+    const corners = d.replace(/^M/, '').replace(/Z$/, '').split('L').map(parse1);
+    assert.deepEqual(corners, parse(points('e2', 'e4')));
+});
+
+test('a bowed shaft curves but still aims at the destination', () => {
+    const d = path('g1', 'f3', { bow: 0.25 });
+    // Two quadratics, one per shaft edge; the head stays straight lines.
+    assert.equal(d.match(/Q/g).length, 2, `expected two curves: ${d}`);
+    // The tip is the same point as the straight arrow's — a curve that moved
+    // the tip would be naming a different square. It is the only lone `L`
+    // point between the two barbs.
+    const tip = parse(points('g1', 'f3'))[3];
+    const drawn = d.split(/[MQLZ]/).filter(Boolean).flatMap((seg) => seg.trim().split(' ')).map(parse1);
+    assert.ok(
+        drawn.some(([x, y]) => Math.abs(x - tip[0]) < 1e-2 && Math.abs(y - tip[1]) < 1e-2),
+        `the bow moved the tip: ${d}`,
+    );
+});
+
+test('the bow pushes the shaft off the straight line', () => {
+    // The control points have to actually be somewhere else, or `bow` is a
+    // setting that changes nothing.
+    const straight = path('e2', 'e4', { bow: 0 });
+    const bowed = path('e2', 'e4', { bow: 0.25 });
+    assert.notEqual(straight, bowed);
 });

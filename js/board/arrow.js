@@ -47,6 +47,13 @@ export const DEFAULTS = {
     // move — both ends read better held back a little.
     tail: 0.30,
     tip: 0.18,
+    // How far the shaft bows sideways at its midpoint, in squares. Zero is the
+    // straight arrow this ships with; arrows.html offers a bowed variant
+    // because the ticket names "straight against slightly curved" as one of
+    // the axes to choose along. A curve does not make a knight's move any more
+    // truthful — it still does not follow the L — but it reads as a gesture
+    // rather than a ruler, which is a different thing to like or dislike.
+    bow: 0,
 };
 
 // Build the overlay element. Empty until `draw` is called.
@@ -114,25 +121,62 @@ export function points(from, to, style = {}) {
     ].join(' ');
 }
 
+// The same outline as a path, so the shaft can bow. `bow: 0` gives exactly the
+// straight polygon above; anything else pulls the two shaft edges sideways at
+// their midpoint with one quadratic each, which keeps the shaft an even
+// thickness along the curve because both edges bow by the same amount.
+//
+// The head stays a straight triangle and stays aimed along the chord. Bending
+// it too would point it away from the square it is naming, which is the one
+// thing the arrow must not do.
+export function path(from, to, style = {}) {
+    const shape = { ...DEFAULTS, ...style };
+    const flat = points(from, to, shape);
+    if (!flat) return null;
+
+    const p = flat.split(' ').map((s) => s.split(',').map(Number));
+    if (!shape.bow) return `M${p.map((q) => q.join(',')).join('L')}Z`;
+
+    const a = centre(from);
+    const b = centre(to);
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const px = -(b.y - a.y) / length;
+    const py = (b.x - a.x) / length;
+
+    // One control point per shaft edge, at the midpoint of that edge, pushed
+    // out by twice the bow — a quadratic passes half way to its control point,
+    // so doubling it makes `bow` the sagitta the caller actually asked for.
+    const bend = ([x0, y0], [x1, y1]) => {
+        const cx = (x0 + x1) / 2 + px * shape.bow * 2;
+        const cy = (y0 + y1) / 2 + py * shape.bow * 2;
+        return `Q${cx.toFixed(3)},${cy.toFixed(3)} ${x1.toFixed(3)},${y1.toFixed(3)}`;
+    };
+
+    // p[0]→p[1] is one shaft edge, p[5]→p[6] the other, and the head is p[2..4].
+    return [
+        `M${p[0].join(',')}`,
+        bend(p[0], p[1]),
+        `L${p[2].join(',')}L${p[3].join(',')}L${p[4].join(',')}L${p[5].join(',')}`,
+        bend(p[5], p[6]),
+        'Z',
+    ].join('');
+}
+
 // Draw one arrow into an overlay, replacing whatever was there. Called with no
 // squares it clears — the same contract as `Board.showMove`, and for the same
 // reason: the board keeps no memory of whether an arrow was due.
 export function draw(svg, from, to, style = {}) {
     svg.replaceChildren();
     if (!from || !to) return null;
-    const shape = points(from, to, style);
-    if (!shape) return null;
+    const d = path(from, to, style);
+    if (!d) return null;
 
-    const polygon = document.createElementNS(SVG, 'polygon');
-    polygon.setAttribute('points', shape);
-    polygon.setAttribute('class', 'arrow');
+    const el = document.createElementNS(SVG, 'path');
+    el.setAttribute('d', d);
+    el.setAttribute('class', 'arrow');
     // Rounding the corners softens the barbs, which at this size otherwise read
     // as needles on a phone.
-    polygon.setAttribute('stroke-linejoin', 'round');
-    if (style.round) {
-        polygon.setAttribute('stroke', 'currentColor');
-        polygon.setAttribute('stroke-width', String(style.round));
-    }
-    svg.append(polygon);
-    return polygon;
+    el.setAttribute('stroke-linejoin', 'round');
+    svg.append(el);
+    return el;
 }
