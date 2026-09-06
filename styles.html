@@ -107,7 +107,14 @@ body.phone .frame {
     width: 375px;
     /* The app's own phone padding, from base.css's max-width:30rem rule.
      * Without it this specimen is 375px of content where the phone gives the
-     * content ~367px. */
+     * content ~367px.
+     *
+     * Retyped, and unlike the colour tokens it cannot be checked against
+     * base.css — it is a media-query value, not a custom property, so there is
+     * nothing to read it out of. The cost of drift is small and one-directional:
+     * if base.css changes this padding, every specimen here is 8px wider than
+     * the phone, which makes the page slightly optimistic rather than wrong
+     * about a treatment. Named here so the next person knows it is a copy. */
     padding: 0.25rem;
 }
 
@@ -135,13 +142,18 @@ body.phone .frame {
  * without a build step, and this repo has no build step (ADR 0001), so the
  * copy is unavoidable. What is avoidable is not noticing: scripts/verify.mjs
  * reads both files and fails if any token here disagrees with base.css. */
+/* Only the tokens this page's specimens actually read. The board is out of
+ * scope here (#13, #14, #27), so the square colours are not copied — a token
+ * repeated for no specimen is one more thing to keep in step for nothing.
+ *
+ * --hint-to is copied because the proposed accent is derived from it, and the
+ * accent has to follow these buttons rather than the operating system. */
 :root[data-theme="light"] {
     --bg: #f4f1ea;
     --fg: #23201c;
     --muted: #6b645a;
     --edge: #3a342c;
-    --square-light: #f0d9b5;
-    --square-dark: #b58863;
+    --hint-to: rgb(24 76 150 / 1);
     --accent: #7a5c3e;
 }
 
@@ -150,8 +162,7 @@ body.phone .frame {
     --fg: #e8e3d9;
     --muted: #9a938a;
     --edge: #0d0c0b;
-    --square-light: #d8c2a0;
-    --square-dark: #9c7350;
+    --hint-to: rgb(125 180 240 / 1);
     --accent: #c9a97e;
 }
 
@@ -179,7 +190,16 @@ body.phone .frame {
  * standard chessboard cream, and the page background is derived from it. The
  * page is built around a board, not around a look. */
 .proposed {
-    --accent: #184c96;
+    /* Taken from the hint rather than restated as #184c96, which is the same
+     * colour written down a second time.
+     *
+     * The point of this accent is that the app already made this decision: the
+     * move hint is that blue, and base.css argues for it there. Two literals
+     * are two things to keep in step, and base.css already themes --hint-to in
+     * both directions — so deriving it means the dark theme needs no override
+     * here at all, and the accent cannot become a second blue that nearly
+     * matches the mark on the board. */
+    --accent: var(--hint-to);
 
     /* Four steps, replacing seven ad-hoc sizes chosen one at a time (0.7, 0.75,
      * 0.8 ×5, 0.85 ×2, 0.9, 1, 1.1rem). The point is not that seven is too many
@@ -197,11 +217,6 @@ body.phone .frame {
     --t-lg: 1.1rem;    /* titles */
 }
 
-:root[data-theme="dark"] .proposed { --accent: rgb(125 180 240); }
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .proposed { --accent: rgb(125 180 240); }
-}
 
 /* ── The list ────────────────────────────────────────────────────────────────
  * Twelve identically bordered boxes become twelve rows separated by space.
@@ -225,6 +240,11 @@ body.phone .frame {
 }
 
 .proposed .lines { gap: 0.15rem; }
+
+/* The name sits on the body step, not on a size of its own: it is the content
+ * of the row, and weight is already carrying the difference from the sentence
+ * under it. */
+.proposed .line-name { font-size: var(--t-md); }
 
 .proposed .line-idea {
     font-size: var(--t-sm);
@@ -257,7 +277,14 @@ body.phone .frame {
 .proposed .line:disabled {
     opacity: 0.45;
     border-left: 2px dashed var(--edge);
-    padding-left: 0.5rem;
+    /* Indented rather than flush. The rows have almost no horizontal padding
+     * now that the boxes are gone, so a mark on the row's own left edge sits
+     * against the screen edge on a phone and reads as part of the frame — the
+     * same merging this treatment moved off the bottom edge to avoid. The row
+     * steps in, which also makes "not ready yet" legible as a shape while
+     * scrolling, before any of the words are read. */
+    margin-left: 0.15rem;
+    padding-left: 0.6rem;
     border-radius: 0;
 }
 
@@ -384,6 +411,15 @@ body.phone .frame {
 
 .proposed .lang { font-size: var(--t-sm); }
 
+/* The two bits of scaffolding at the edges of the page. Neither has a specimen
+ * above — they are a fixed-position number and a footer, and framing them next
+ * to a tab row would say nothing — but both are listed here so the scale
+ * actually retires all seven sizes rather than four of them. 0.7rem on the
+ * build number was the seventh, and it becomes --t-xs like the credits it
+ * already nearly matched. */
+.proposed .build,
+.proposed .credits { font-size: var(--t-xs); }
+
 /* ── The Explain controls ────────────────────────────────────────────────────
  * The two play controls carry the accent as a border rather than a fill: a
  * filled button beside a chessboard competes with the pieces, and these two
@@ -486,10 +522,16 @@ goes.
     <p>
         Twelve identically bordered boxes today. The proposal drops the boxes
         and separates the rows with space, which returns the horizontal room to
-        the idea sentence. All twelve openings have their texts now, so the
-        last row here is a constructed not-ready line — that state still ships
-        in <code>list.js</code>, and it is what the next opening looks like on
-        the day it is added.
+        the idea sentence. It also sets “Playing White” in sentence case rather
+        than tracked-out capitals, and marks a not-ready line with a dash down
+        its left edge instead of a dashed box — two separate choices you can
+        take or leave independently of the boxes.
+    </p>
+    <p>
+        All twelve openings have their texts now, so the last row here is a
+        constructed not-ready line — that state still ships in
+        <code>list.js</code>, and it is what the next opening looks like on the
+        day it is added.
     </p>
     <div class="pair">
         <section>
@@ -510,6 +552,15 @@ goes.
         The app’s name appears on every screen and says the least of anything on
         it — today it is set larger than the move text. The proposal steps it
         down and leaves the toggle where it is.
+    </p>
+    <p>
+        <strong>It also drops the “OPENINGS” title, which is a separate
+        choice.</strong> Two reasons: it is a tracked-out all-caps label above a
+        heading, which is template chrome rather than information; and once the
+        tabs land, the active tab already says “Openings” a few pixels above it.
+        Keeping the title is possible — this is the one state here that removes
+        something rather than restyling it, so it is called out rather than
+        slipped in.
     </p>
     <div class="pair">
         <section>

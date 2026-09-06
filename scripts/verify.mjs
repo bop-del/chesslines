@@ -1049,6 +1049,68 @@ const checks = [
             assert(bad.length === 0, `German notation in storage: ${JSON.stringify(bad)}`);
         },
     },
+
+    {
+        name: 'the state pages’ theme copies still match base.css',
+        async run() {
+            // A state page (styles.html, and arrows.html when #27 lands) repeats
+            // base.css's tokens so its theme switch can work on demand. CSS
+            // cannot share one declaration block between a media query and a
+            // plain selector without a build step, and there is no build step
+            // (ADR 0001), so the copy is unavoidable.
+            //
+            // A copy that drifts is worse than no page at all: the treatment
+            // would be judged against colours the app does not use, and the
+            // whole point of a state page is that it is the real CSS rather
+            // than a mockup (#13, where the coordinates read fine on a desktop
+            // and were 8.2px on the phone). So the copy is checked, not
+            // trusted.
+            //
+            // Every state page present is checked, rather than one by name:
+            // this repo builds one per design ticket, and a check naming a
+            // single file silently stops covering the next one.
+            const base = await readFile(join(ROOT, 'css/base.css'), 'utf8');
+            const dark = base.match(/@media \(prefers-color-scheme: dark\)[\s\S]*?\n\}/)?.[0];
+            assert(dark, 'could not find the dark theme block in css/base.css');
+
+            const tokens = (css) => {
+                const found = new Map();
+                for (const [, name, value] of css.matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
+                    found.set(name, value.trim());
+                }
+                return found;
+            };
+            const want = tokens(dark);
+
+            const pages = ['styles.html', 'arrows.html'];
+            const drifted = [];
+            let checked = 0;
+
+            for (const name of pages) {
+                let source;
+                try {
+                    source = await readFile(join(ROOT, name), 'utf8');
+                } catch {
+                    // A state page is deleted once its choices are made, which
+                    // is a normal end and not a failure.
+                    continue;
+                }
+                const copy = tokens(source.match(/:root\[data-theme="dark"\][\s\S]*?\n\}/)?.[0] ?? '');
+                assert(copy.size > 0, `could not find the dark theme copy in ${name}`);
+                checked += 1;
+                // Only tokens the page actually copies: a page is free to
+                // repeat the three it needs rather than all of them.
+                for (const [token, value] of copy) {
+                    if (want.has(token) && want.get(token) !== value) {
+                        drifted.push(`${name}: ${token} is ${value}, base.css says ${want.get(token)}`);
+                    }
+                }
+            }
+
+            assert(checked > 0, `no state page found among ${pages.join(', ')}`);
+            assert(drifted.length === 0, `drifted from css/base.css — ${drifted.join('; ')}`);
+        },
+    },
 ];
 // ─── Run ─────────────────────────────────────────────────────────────────────
 // Every check runs against both engines. The desktop is not the target, and
