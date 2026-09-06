@@ -113,13 +113,33 @@ just made, or a stale copy?* Pages takes 1–3 minutes, and without it the only
 way to tell is to guess.
 
 **It is derived, not typed.** `npm run build-number` counts the commits that
-touched `index.html`, `css/` or `js/` and writes the result. Run it before
-merging shipped changes to `main`. Docs-only, `scripts/`-only and `test/`-only
-commits do not move it: the number tracks what is deployed, and one that
-changes without the page changing is useless for the one job it has.
+touched `index.html`, `css/` or `js/` and writes the result. Docs-only,
+`scripts/`-only and `test/`-only commits do not move it: the number tracks what
+is deployed, and one that changes without the page changing is useless for the
+one job it has.
+
+**Write it once, when the lane lands — after the rebase, before the PR.** Not
+while building. `/accept-ticket` does it as a step, so an implementing session
+never touches the file at all:
+
+```bash
+git rebase origin/main && npm run build-number
+```
+
+A lane that bumped mid-flight had to bump again after the rebase, which is
+where #22 found four `Set the build number to what history says` commits on
+`main` in a single day.
 
 **Never edit `js/version.js` by hand.** `npm test` asserts it matches what
 history says, so a hand edit fails the suite.
+
+**A lane trailing the number is correct, not stale.** The test measures against
+what has *landed* — the merge base with `origin/main` — not against `HEAD`.
+Comparing to `HEAD` meant that committing a shipped file was itself what turned
+the suite red: on #12 it was 55/55 before the commit and 54/55 after, and
+"55/55 green" was reported in good faith and was wrong (#22). The lane's own
+shipped commits are counted in what it *owes* at landing, and the gap is
+expected until it lands.
 
 **`js/version.js` itself is excluded from the count**, which is what makes the
 number stable: writing it is a commit touching `js/`, so counting it would move
