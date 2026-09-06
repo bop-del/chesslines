@@ -182,13 +182,28 @@ export class Board {
     // rings leave the reader to connect two marks; the arrow says *this piece
     // goes there* directly. The from-ring is what still answers "which piece"
     // when the arrow is short, so it stays.
-    showMove(from, to) {
+    // `rings` and `style` exist for arrows.html and nothing else: the variants
+    // page has to show the same move with six different arrows, and with the
+    // rings on and off, through the real board rather than a rebuild of it —
+    // a variant judged against a board of its own would prove nothing. The app
+    // passes neither and gets the shipped treatment.
+    // `rings` is 'both', 'from' or 'none'; 'from' is the ticket's open question
+    // made visible — the arrow may be strong enough that a to-ring on the same
+    // square is one mark too many, while the from-ring still answers "which
+    // piece". The app passes neither option and gets the shipped treatment.
+    showMove(from, to, { rings = 'both', style } = {}) {
         for (const el of this.#squares.values()) {
             el.classList.remove('from-hint', 'to-hint');
         }
-        if (from) this.#squares.get(from)?.classList.add('from-hint');
-        if (to) this.#squares.get(to)?.classList.add('to-hint');
-        draw(this.#arrows, from, to);
+        if (from && rings !== 'none') this.#squares.get(from)?.classList.add('from-hint');
+        if (to && rings === 'both') this.#squares.get(to)?.classList.add('to-hint');
+        draw(this.#arrows, from, to, style);
+    }
+
+    // The arrow overlay, so the variants page can colour it per board. Not used
+    // by the app, which themes it from one token in base.css.
+    get arrows() {
+        return this.#arrows;
     }
 
     // Playing Black means seeing the board from Black's side. Rotating the

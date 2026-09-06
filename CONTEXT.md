@@ -51,11 +51,20 @@ _Avoid_: comment, annotation, explanation, description
 
 **Move hint**:
 The next own move, shown on the board itself — its from-square marked quietly,
-its to-square marked strongly. A per-viewer preference that can be switched
-off, defaulting to on. In the code it is `.from-hint` and `.to-hint`, drawn as
-outlines by `Board.showMove()`.
+its to-square marked strongly, and an arrow drawn from one to the other. A
+per-viewer preference that can be switched off, defaulting to on. In the code
+it is `.from-hint`, `.to-hint` and the arrow, all drawn by `Board.showMove()`.
 _Avoid_: hint (the board already has a `.hint` class meaning something else),
-highlight, arrow, cue
+highlight, cue
+
+**Arrow**:
+The line with a head drawn from the hint's from-square to its to-square, in an
+SVG over the board (issue #27). Part of the move hint, not a feature beside it:
+the same switch turns it off, and it is absent in every case the rings are.
+Straight for every move, knights included — it says *from here to there*, not
+*along this path*.
+_Avoid_: move arrow (the hint is the move; this is one of its three marks),
+line (that means a taught sequence here), pointer
 
 > **Why the hint is an outline, and why it does not reuse `.hint`.** The board
 > has four markers already: `.selected`, `.hint` and `.wrong` fill the square;

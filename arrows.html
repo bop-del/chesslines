@@ -74,10 +74,17 @@ body { padding-bottom: 4rem; }
     max-width: none;
 }
 
-/* The theme switch. This page has to be judged in both, and waiting for
- * sunset is not a review process. It overrides the tokens the media query
- * sets, so it has to come after base.css — it is here, and it is why these
- * values are repeated rather than imported. */
+/* The theme switch. This page has to be judged in both themes on demand, and
+ * waiting for sunset is not a review process.
+ *
+ * These values are copied from css/base.css, and copies drift — a stale
+ * --square-dark here would quietly invalidate the one judgement this page
+ * exists to support. CSS cannot share one declaration block between a media
+ * query and a plain selector without a build step, and this repo has no build
+ * step (ADR 0001), so the copy is unavoidable. What is avoidable is not
+ * noticing: `npm run verify` reads both files and fails if any token here
+ * disagrees with base.css. Change a colour there and this must follow, and
+ * the check will say so. */
 :root[data-theme="dark"] {
     --bg: #171614;
     --fg: #e8e3d9;
@@ -126,17 +133,19 @@ body { padding-bottom: 4rem; }
 <div class="page">
   <h1>Arrow variants</h1>
   <p class="intro">
-    Six treatments of the move arrow, each on a real board with the real
-    stylesheet (issue&nbsp;#27). Every variant twice: once on <b>1.e4</b>, the
-    move it flatters, and once on <b>Nf3</b>, where a straight arrow crosses a
-    square the knight never occupies and so looks its worst. Pick by looking,
-    on the phone. Not part of the app — nothing links here.
+    Seven treatments of the move arrow, each drawn by the real board through
+    the real stylesheet (issue&nbsp;#27). Every variant twice: once on
+    <b>1.e4</b>, the move it flatters, and once on <b>Nf3</b>, where a straight
+    arrow crosses a square the knight never occupies and so looks its worst.
+    The <b>rings</b> button cycles both&nbsp;→ from-ring&nbsp;only&nbsp;→ none,
+    which is the ticket's open question. Pick by looking, on the phone. Not
+    part of the app — nothing links here.
   </p>
 
   <div class="controls">
     <button id="theme">Dark</button>
     <button id="flip" aria-pressed="false">Flipped (Black’s view)</button>
-    <button id="rings" aria-pressed="true">Rings on</button>
+    <button id="rings">Both rings</button>
     <button id="taps">Test taps</button>
   </div>
   <p class="intro" id="tap-result" hidden></p>
@@ -147,7 +156,6 @@ body { padding-bottom: 4rem; }
 <script type="module">
 import { Chess } from './js/vendor/chess.js';
 import { Board } from './js/board/Board.js';
-import { overlay, draw } from './js/board/arrow.js';
 
 // The sprite, fetched rather than pasted. The app inlines it so `<use>`
 // resolves without a request (index.html); this page is dev scenery served
@@ -156,10 +164,9 @@ import { overlay, draw } from './js/board/arrow.js';
 const sprite = await fetch('css/pieces.svg').then((r) => r.text());
 document.body.insertAdjacentHTML('afterbegin', sprite);
 
-// The six variants. Thickness, head size and opacity are the axes that
-// actually change how an arrow reads; `round` softens the barbs by stroking
-// the polygon in its own colour, which is a different question from making it
-// thicker.
+// The variants. Thickness, head size, opacity and bow are the axes the ticket
+// names — "thickness, straight against slightly curved, head size, opaque
+// against translucent" — one variant per axis, plus the middle they vary from.
 const VARIANTS = [
     {
         name: 'Thin',
@@ -188,11 +195,16 @@ const VARIANTS = [
         dark: 'rgb(125 180 240 / 0.42)',
     },
     {
-        name: 'Opaque, rounded',
-        note: 'Full alpha with rounded barbs. The most confident, and the one that hides the most.',
-        style: { width: 0.20, head: 0.46, spread: 0.38, round: 0.06 },
+        name: 'Opaque',
+        note: 'Standard proportions at full alpha. The most confident, and the one that hides the most of the piece it starts on.',
+        style: { width: 0.20, head: 0.46, spread: 0.38 },
         colour: 'rgb(24 76 150 / 1)',
         dark: 'rgb(125 180 240 / 1)',
+    },
+    {
+        name: 'Curved',
+        note: 'Standard proportions with a bowed shaft — the other axis the ticket names. Judge it on Nf3: a curve still does not follow the L, but it may read as a gesture rather than a ruler.',
+        style: { bow: 0.22 },
     },
 ];
 
@@ -200,11 +212,23 @@ const VARIANTS = [
 // the L-shaped one this page exists to judge.
 const MOVES = [
     { label: '1.e4 — e2 to e4', from: 'e2', to: 'e4', moves: [] },
-    { label: 'Nf3 — g1 to f3, straight', from: 'g1', to: 'f3', moves: ['e4', 'e5'] },
+    { label: 'Nf3 — g1 to f3, not along the L', from: 'g1', to: 'f3', moves: ['e4', 'e5'] },
 ];
 
 const host = document.getElementById('variants');
 const boards = []; // every board built, so the switches can reach all of them
+
+// The ticket's open question, and it is a three-way one rather than on/off:
+// "Does the arrow replace the to-ring? Two strong marks on the destination may
+// be one too many." The from-ring is not in question — it is what answers
+// "which piece" when the arrow is short — so the middle setting is the one the
+// ticket actually poses, and an on/off switch would never show it.
+const RINGS = [
+    { value: 'both', label: 'Both rings' },
+    { value: 'from', label: 'From-ring only' },
+    { value: 'none', label: 'No rings' },
+];
+let ringsOn = 'both';
 
 for (const variant of VARIANTS) {
     const section = document.createElement('section');
@@ -237,21 +261,23 @@ for (const variant of VARIANTS) {
             },
         });
         board.render(game);
-        board.showMove(move.from, move.to);
-
-        const svg = overlay();
-        if (variant.colour) svg.style.setProperty('--arrow', variant.colour);
-        board.root.append(svg);
-        boards.push({ board, svg, move, variant });
-        redraw(board, move, variant);
+        // Through the board's own overlay, not a second one laid over it. The
+        // page exists to judge one arrow at a time, and an earlier draft
+        // appended its own SVG on top of the board's — so every variant was
+        // itself drawn over the shipped default, and "Thin" was thin-over-
+        // standard. Six variants that all contain the default are not six
+        // variants.
+        if (variant.colour) board.arrows.style.setProperty('--arrow', variant.colour);
+        const entry = { board, move, variant };
+        boards.push(entry);
+        redraw(entry);
     }
 
     host.append(section);
 }
 
-function redraw(board, move, variant) {
-    const entry = boards.find((b) => b.board === board);
-    if (entry) draw(entry.svg, move.from, move.to, variant.style);
+function redraw({ board, move, variant }) {
+    board.showMove(move.from, move.to, { rings: ringsOn, style: variant.style });
 }
 
 // ─── The switches ────────────────────────────────────────────────────────────
@@ -265,9 +291,9 @@ theme.addEventListener('click', () => {
     theme.textContent = dark ? 'Light' : 'Dark';
     // The two variants that name their own colour have to follow the theme by
     // hand: they are overriding the token the theme would otherwise supply.
-    for (const { svg, variant } of boards) {
+    for (const { board, variant } of boards) {
         if (!variant.colour) continue;
-        svg.style.setProperty('--arrow', dark ? variant.dark : variant.colour);
+        board.arrows.style.setProperty('--arrow', dark ? variant.dark : variant.colour);
     }
 });
 
@@ -282,17 +308,12 @@ flip.addEventListener('click', () => {
 });
 
 const rings = document.getElementById('rings');
+rings.textContent = RINGS[0].label;
 rings.addEventListener('click', () => {
-    const on = rings.getAttribute('aria-pressed') !== 'true';
-    rings.setAttribute('aria-pressed', String(on));
-    rings.textContent = on ? 'Rings on' : 'Rings off';
-    // The ticket's open question: does the arrow replace the to-ring? Two
-    // strong marks on one square may be one too many, and the only way to know
-    // is to see it both ways.
-    for (const { board, move } of boards) {
-        if (on) board.showMove(move.from, move.to);
-        else board.showMove(null, null);
-    }
+    const next = (RINGS.findIndex((r) => r.value === ringsOn) + 1) % RINGS.length;
+    ringsOn = RINGS[next].value;
+    rings.textContent = RINGS[next].label;
+    for (const entry of boards) redraw(entry);
 });
 
 // The failure this feature could most easily have: an overlay covering all 64

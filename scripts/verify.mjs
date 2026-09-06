@@ -763,8 +763,12 @@ const checks = [
                 showLine('italian-game');
                 explain.offer({ san: 'e4' });
                 await new Promise((r) => setTimeout(r, 30)); // the opponent plays e5
-                const points = document.querySelector('.arrow')?.getAttribute('points');
-                return points?.split(' ').map((p) => p.split(',').map(Number));
+                // The shipped arrow is straight, so its path is `M`/`L`
+                // corners and a `Z` — the same seven points the unit tests
+                // check, read back off the DOM.
+                const d = document.querySelector('.arrow')?.getAttribute('d');
+                return d?.replace(/^M/, '').replace(/Z$/, '')
+                    .split('L').map((p) => p.split(',').map(Number));
             });
             assert(drawn, 'no arrow was drawn for the due move');
             // A viewBox of 0 0 8 8, so a square is one unit and g1 is the cell
@@ -874,8 +878,9 @@ const checks = [
                 await new Promise((r) => setTimeout(r, 30));
                 const svg = document.querySelector('.arrows');
                 return {
-                    points: document.querySelector('.arrow')
-                        ?.getAttribute('points').split(' ').map((p) => p.split(',').map(Number)),
+                    points: document.querySelector('.arrow')?.getAttribute('d')
+                        .replace(/^M/, '').replace(/Z$/, '')
+                        .split('L').map((p) => p.split(',').map(Number)),
                     // Any counter-rotation would have to live here, the way the
                     // pieces' does.
                     transform: getComputedStyle(svg).transform,
@@ -890,6 +895,44 @@ const checks = [
             assert(
                 drawn.transform === 'none',
                 `the overlay is counter-rotated (${drawn.transform}) — the head would point back`,
+            );
+        },
+    },
+
+    {
+        name: 'the variants page’s theme copy still matches base.css',
+        async run() {
+            // arrows.html repeats base.css's tokens so its theme switch can
+            // work on demand; CSS cannot share a declaration block between a
+            // media query and a plain selector without a build step, and there
+            // is no build step (ADR 0001). A copy that drifts is worse than no
+            // page at all — the variant would be judged against colours the app
+            // does not use — so the copy is checked rather than trusted.
+            const [base, page] = await Promise.all([
+                readFile(join(ROOT, 'css/base.css'), 'utf8'),
+                readFile(join(ROOT, 'arrows.html'), 'utf8'),
+            ]);
+            // The tokens as base.css's dark block defines them.
+            const dark = base.match(/@media \(prefers-color-scheme: dark\)[\s\S]*?\n\}/)?.[0];
+            assert(dark, 'could not find the dark theme block in css/base.css');
+            const tokens = (css) => {
+                const found = new Map();
+                for (const [, name, value] of css.matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
+                    found.set(name, value.trim());
+                }
+                return found;
+            };
+            const want = tokens(dark);
+            const got = tokens(page.match(/:root\[data-theme="dark"\][\s\S]*?\n\}/)?.[0] ?? '');
+            assert(got.size > 0, 'could not find the dark theme copy in arrows.html');
+
+            const drifted = [...got].filter(([name, value]) =>
+                want.has(name) && want.get(name) !== value);
+            assert(
+                drifted.length === 0,
+                `arrows.html has drifted from css/base.css: ${drifted
+                    .map(([n, v]) => `${n} is ${v}, base.css says ${want.get(n)}`)
+                    .join('; ')}`,
             );
         },
     },
