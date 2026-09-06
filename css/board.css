@@ -181,12 +181,15 @@
     font-size: max(var(--coord-min), 3.2cqi);
     /* Back to normal weight. The 600 was compensating for the opacity — bold
      * was the only way a half-transparent label registered at all. With real
-     * contrast it is not needed, and dropping it is what keeps the labels
-     * scaffolding rather than content now that they are bigger and darker.
-     * --muted would be the other lever, but it falls to 3.8:1 on the worst
-     * square and this bug was the labels being too faint to read. */
+     * contrast it is not needed. */
     font-weight: 400;
-    color: var(--fg);
+    /* --muted, not --fg. --fg is the body text colour, and at this size it made
+     * the labels compete with the pieces — which the acceptance walk rejected,
+     * since the ticket asks for scaffolding rather than content. The halo is
+     * what makes the quieter colour affordable: --muted bare would be worse
+     * than what this fix replaced, and with the halo it holds 3.8:1 on the
+     * worst square in either theme. */
+    color: var(--muted);
     /* Four offsets rather than a blur: a blur at this size grazes the glyph
      * and mostly reads as mud. This is a 1px outline that stays crisp. */
     text-shadow:
