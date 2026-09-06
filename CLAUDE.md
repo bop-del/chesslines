@@ -206,6 +206,14 @@ ticket.
 `.claude/skills/`, not the shared engineering skills, because they know about
 this board, this verification run and this build number.
 
+`.claude/settings.json` is checked in beside them, and holds one thing: the
+commands this file already prescribes — `node`, `npm`, `python3` for the dev
+server, `herdr` for the lane lifecycle, `lsof` for the stale-port case, and the
+two scripts in `bin/`. A lane that had to be asked about `npm test` would be
+asking about the gate it exists to run. It grants nothing a session could not
+already do by asking, and per-machine overrides go in
+`.claude/settings.local.json`, which is gitignored because this repo is public.
+
 ### Lanes, and the session that opens them
 
 Tickets run **in parallel, one lane each** (#15). A lane is a git worktree for
