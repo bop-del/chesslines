@@ -82,8 +82,9 @@ npm run verify       # Playwright — the real thing, both engines
 
 `npm test` covers the position key, the PGN tree and catalogue lookup in
 milliseconds, which is what makes test-first practical. `npm run verify` serves
-the repo on port 8123 (the dev server keeps 8000, so both run at once) and
-asserts what unit tests structurally cannot: that the modules load over HTTP,
+the repo on a port the OS picks, so it never collides with the dev server on
+8000 or with another lane running the checks at the same time (#18). It asserts
+what unit tests structurally cannot: that the modules load over HTTP,
 the imports resolve, the console is clean, and it all works in **WebKit** as
 well as Chromium. It writes `.screenshots/` — `app.png`, `app-selected.png` and a phone-sized
 `app-phone.png` — on every run, pass or fail.
