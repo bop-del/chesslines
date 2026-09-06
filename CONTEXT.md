@@ -79,3 +79,20 @@ One ticket's isolated place to work: a git worktree for the files, plus a Herdr
 workspace and agent for the session. Both halves are required — a pane alone
 shares the launchpad's working directory, which is not isolation.
 _Avoid_: worktree (that is only the files), pane, window, branch
+
+**Mode**:
+One of the three things Felix can be doing: Explain, Adopt, Drill. Adopt is an
+act rather than a place, so only two of them are tabs.
+_Avoid_: screen (that is one view), tab (that is the control), section
+
+**Tab**:
+One of the three destinations on the list screen — Openings, Mine, Practise.
+They name where he is, not what he is doing, so they are absent while a line is
+being walked. A tab he cannot use yet is greyed and carries the condition that
+opens it: a path, not a promised reward.
+_Avoid_: menu, nav, mode (a tab is the control, not the thing)
+
+**Repertoire**:
+The lines Felix has adopted, and what the Mine tab shows. His data, in his
+browser, keyed by position. Adopting is the only way anything enters it.
+_Avoid_: my openings, collection, favourites, saved lines
