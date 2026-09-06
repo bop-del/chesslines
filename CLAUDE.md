@@ -168,8 +168,8 @@ in this repo. The main flow, idea → shipped:
 /mattpocock-skills:to-tickets     split a spec into tickets with blocking edges
                                   — skip it when the work is one coherent
                                   change, which is most of the time here
-/start-ticket                     claim the card and cut a branch, before any
-                                  code exists
+/start-ticket                     claim the card, open a lane, and start
+                                  /implement in it — before any code exists
 /mattpocock-skills:implement      build a ticket; drives /tdd, closes with
                                   /code-review
 /accept-ticket                    the judgements a verification run cannot
@@ -183,6 +183,38 @@ ticket.
 `/start-ticket` and `/accept-ticket` bookend the build and live in
 `.claude/skills/`, not the shared engineering skills, because they know about
 this board, this verification run and this build number.
+
+### Lanes, and the session that opens them
+
+Tickets run **in parallel, one lane each** (#15). A lane is a git worktree for
+the files plus a Herdr workspace and agent for the session; both halves are
+required, since a second pane in the same clone shares its working directory
+and its branch. `CONTEXT.md` defines **lane** and **launchpad**.
+
+**The session in the main clone is the launchpad, and it stays on `main`.** It
+opens lanes and starts agents in them; it never checks out a feature branch.
+This is not tidiness: while the main session sat on `feat/14-move-hint`, another
+session merged #14 and the main clone's working directory jumped to `main` on
+its own. One ticket, harmless — several at once, and lanes pull the ground out
+from under each other. So a ticket lives in its lane from claim to merge.
+
+**If you are an agent in a lane, end the build by pinging, not by waiting.**
+When both gates pass and the card is in `Needs review`:
+
+```bash
+herdr notification show "#<n> ready for review" --sound done
+herdr pane send-text "$HERDR_PANE_ID" "/accept-ticket <n>"
+```
+
+`send-text` types the command without submitting, so a keystroke starts the
+walk and nothing starts it unattended. Do not `herdr agent wait` on anything —
+a blocked lane is a session held open for no reason, and blocking the launchpad
+would stop it opening the next lane, which is the whole point.
+
+Two things make parallel lanes painless rather than merely possible, and both
+were taxes paid deliberately: the build number is derived from history rather
+than typed (#17), so lanes cannot conflict on it, and `verify.mjs` asks the OS
+for a free port (#18), so two lanes can run the checks at once.
 
 **`/accept-ticket` is the slow step here, and it is meant to be.** In sndlab
 the question was "does it sound good", answered in thirty seconds. Here it is

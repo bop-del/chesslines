@@ -1,14 +1,30 @@
 #!/usr/bin/env sh
 
 # Open chesslines in Claude Code with the engineering skills loaded.
-# Usage: cc-chesslines [claude arguments...]
+# Usage: cc-chesslines [directory] [claude arguments...]
 #
 # Sourced by the cc-chesslines shell function in ~/.zshrc, so that the `cd`
 # survives Claude exiting. Also runnable directly (./bin/cc-chesslines), in which
 # case the cd applies only to the subshell.
+#
+# The directory is what makes a lane possible (issue #15). A lane lives under
+# ~/.herdr/worktrees/, not beside the clone, and a launcher that hard-codes the
+# main clone would cd the agent out of its worktree — the exact failure
+# /start-ticket warns about. With no argument it starts in the main clone, so
+# the launchpad's case is unchanged.
+#
+# It exists as one place rather than a bare `claude --plugin-dir` in each lane
+# because the account check is not optional: a lane pushes like any other
+# session, and the whole point of that check is stopping work leaving under the
+# wrong identity.
 
-REPO="$HOME/code/chesslines"
 SKILLS="$HOME/code/mattpocock-skills"
+
+# A first argument that is not a flag is the directory to start in.
+case "$1" in
+  -*|"") REPO="$HOME/code/chesslines" ;;
+  *)     REPO="$1"; shift ;;
+esac
 
 if ! cd "$REPO"; then
   echo "✗ $REPO not found"
@@ -28,7 +44,9 @@ else
   echo "  ⚠ gh CLI missing — the issue skills will not work"
 fi
 
-# Engineering skills as a plugin (Matt Pocock)
+# Engineering skills as a plugin (Matt Pocock). A lane agent started without
+# this has no /implement, no /tdd and no /code-review — they reach a session
+# only through --plugin-dir, and nothing else registers them.
 if [ -d "$SKILLS/.claude-plugin" ]; then
   echo "  ✓ Skills: mattpocock-skills"
   set -- --plugin-dir "$SKILLS" "$@"
@@ -37,6 +55,7 @@ else
   echo "    git clone https://github.com/mattpocock/skills.git $SKILLS"
 fi
 
+echo "  ✓ Directory: $PWD"
 echo ""
 
 # `command claude`, not `exec` — this file is sourced, and exec would replace

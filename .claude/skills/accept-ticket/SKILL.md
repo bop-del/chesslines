@@ -9,10 +9,15 @@ disable-model-invocation: true
 The last step of the flow, and the only one an agent cannot do alone:
 
 ```
-/to-tickets     → makes them
-/implement      → builds one
-/accept-ticket  → Boris judges it
+/start-ticket   → claims it and opens its lane
+/implement      → builds it, in the lane
+/accept-ticket  → Boris judges it, in the lane
 ```
+
+**This runs in the lane, not in the launchpad.** The lane owns the ticket from
+claim to merge (`CONTEXT.md`), which is what keeps parallel work from moving
+the launchpad's files under it. If you are on `main` in the main clone, you are
+in the wrong session — say so and stop.
 
 `scripts/verify.mjs` proves the right move was made on the right square. It
 cannot tell you whether the training is any good, whether the layout works in
@@ -184,6 +189,52 @@ On yes:
 - Note anything that supersedes an earlier ticket's criteria, pointing at both.
 
 On no: leave the card in `Needs review` and say what is outstanding.
+
+## 7. Merge, then close the lane
+
+The lane merges its own work. That is the point of it owning the ticket end to
+end: a merge run from the launchpad would be the launchpad touching a feature
+branch, which is the thing lanes exist to prevent.
+
+Before merging, run `npm run build-number` and commit the result if it moved.
+It is derived from history, so it settles after the merge base is known and
+cannot conflict with another lane's (#17) — but the number on Pages is wrong
+until someone writes it.
+
+Then merge to `main` and push, and confirm the issue closed.
+
+**Ask the launchpad to remove the lane.** Not self-removal: an agent cannot
+delete the directory its own process is running in without risking a
+half-removed state.
+
+```bash
+herdr agent prompt launchpad "Lane for #<n> is merged and the card is Done. \
+Please run: herdr worktree remove --workspace <workspace-id>"
+```
+
+The workspace id is the one `/start-ticket` reported when it opened the lane;
+`herdr workspace list` has it if that is out of reach. Say that the message was
+sent, and stop — the launchpad does the removal, and this session ends with it.
+
+## Pinging when the checks go green
+
+This is the other half, and it happens **before** the walk above — at the end of
+`/implement`, when both gates pass and the card moves to `Needs review`.
+
+Nothing waits on anything. A lane that blocks waiting to be noticed is a lane
+holding a session open for no reason, and `herdr agent wait --until idle` would
+block the waiter besides. So the lane announces itself and stops:
+
+```bash
+herdr notification show "#<n> ready for review" --sound done
+herdr pane send-text "$HERDR_PANE_ID" "/accept-ticket <n>"
+```
+
+`pane send-text` types without submitting — deliberately. The walk is Boris's to
+start, and one keystroke starts it. Both of the alternatives submit: `agent
+prompt` sends the text and Enter, and so does `pane run` (its own help says so).
+Either would begin an acceptance walk with nobody watching it, and the walk is
+the one step of this flow an agent must not run alone.
 
 ## What not to do
 

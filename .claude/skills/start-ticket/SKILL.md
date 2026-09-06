@@ -1,6 +1,6 @@
 ---
 name: start-ticket
-description: Open a ticket for work — check it is startable, claim the card, and put the work on its own branch or worktree before any code is written. Use when the user asks to start, take, pick up or begin a ticket.
+description: Open a ticket for work — check it is startable, claim the card, then open a lane for it and start an agent building in it. Use when the user asks to start, take, pick up or begin a ticket.
 disable-model-invocation: true
 ---
 
@@ -9,20 +9,34 @@ disable-model-invocation: true
 The first step of the flow, and the bookend to `/accept-ticket`:
 
 ```
-/start-ticket   → claims it and isolates it
-/implement      → builds it
-/accept-ticket  → Boris judges it
+/start-ticket   → claims it, opens a lane, and starts /implement in it
+/implement      → builds it, in the lane
+/accept-ticket  → Boris judges it, in the lane
 ```
 
-`/implement` ends "commit your work to the current branch" — it creates no
-branch and no worktree, so whatever is checked out is what it commits to. On
-`main` that means uncommitted work sitting in front of a 1–3 minute auto-deploy
-(ADR 0002). This skill is the part that has to happen first.
+**This session is the launchpad, and it stays on `main`.** It opens lanes and
+starts agents in them. It does not check out a feature branch, and it does not
+build anything itself.
 
-**Two writes, in this order: claim, then isolate.** The claim is the board rule
-(`docs/agents/issue-tracker.md`) — *"move to `In progress` as the session's
-first write, before touching any code. A claim recorded at the end prevents
-nothing."*
+## Why the launchpad never branches
+
+Measured, not assumed. While the main session sat on `feat/14-move-hint`, a
+second session merged #14 — and the main clone's working directory jumped to
+`main` with nobody touching it. One ticket, harmless. Several at once, and lanes
+pull the ground out from under each other mid-build.
+
+So every ticket lives entirely in its own lane, merge included. `CONTEXT.md`
+defines both terms:
+
+- **Launchpad** — this session, in the main clone, always on `main`. Addressable
+  as the Herdr agent `launchpad`.
+- **Lane** — one ticket's isolated place to work: a git worktree for the files,
+  plus a Herdr workspace and agent for the session.
+
+**Both halves are required.** A Herdr pane isolates the session; a worktree
+isolates the files. Two agents in two panes of the same clone share a working
+directory and a branch — observed while building #14, where `git worktree list`
+still showed one entry. A pane alone is not a lane.
 
 ## 1. Resolve the ticket
 
@@ -45,17 +59,22 @@ Four gates. Report what you checked; stop on the first failure and say which.
 > ticket returns `blocked_by: 0` from `issue_dependencies_summary` even when
 > its body names a blocker. Parse the body; do not trust the API.
 
-**Is it claimed?** `gh project item-list 2 --owner bop-del --format json`. If
+**Is it claimed?** `gh project item-list 3 --owner bop-del --format json`. If
 the card is already `In progress`, stop — unless it is a stale claim (clean
 tree, nothing pushed, per the board rules), in which case say so and ask
 before taking it.
 
+Cross-check `herdr agent list` as well: a lane still running for that ticket is
+a live claim whatever the board says, and a card in `In progress` with no lane
+is the stale case.
+
 **Is it ready?** A card in `Ideas` or `Needs decision` is not built by an
 agent — that is what `/grill-with-docs` is for. Say so and stop.
 
-**Is `main` clean and pushed?** `git status --short --branch`. Uncommitted
-changes or unpushed commits mean the branch would start from the wrong place,
-or would strand work. Report and let Boris resolve it.
+**Is `main` clean and pushed?** `git status --short --branch`. The lane is cut
+from freshly fetched `origin/main`, so unpushed commits here would be missing
+from it, and uncommitted changes would be stranded in the launchpad. Report and
+let Boris resolve it.
 
 ## 3. Claim the card
 
@@ -66,77 +85,107 @@ command.
 If the issue is not on the board at all, add it first (`gh project item-add`),
 and note that a new item can take a minute to appear in reads.
 
-## 4. Isolate the work
+## 4. Open the lane
 
-Default to a **branch in this clone**. Offer a worktree only when Boris has
-said he wants to run this ticket alongside another.
+Name the branch `<kind>/<n>-<slug>` — `kind` from the issue's label (`feat` for
+`feature`, `fix` for `bug`), slug from the title, short.
 
-Name it `<kind>/<n>-<slug>` — `kind` from the issue's label (`feat` for
-`feature`, `fix` for `bug`), slug from the title, short. Off freshly fetched
-`origin/main`, never off whatever happens to be checked out:
-
-```bash
-git fetch origin
-git switch -c feat/3-drill-loop origin/main
-```
-
-### When it is a worktree
-
-Only with a live reason — two tickets genuinely startable at once. #15 is the
-open ticket on this, and it says worktrees buy throughput, which only pays off
-when sessions actually run concurrently.
-
-**A Herdr pane on its own is not a second lane.** Panes isolate the session;
-worktrees isolate the files. Two agents in two panes of the same clone share a
-working directory and a branch, and a `git switch` in one pulls the files out
-from under the other. #15 is about doing both at once.
+**Herdr does both halves in one call.** `worktree create` makes the worktree
+*and* a workspace with a shell pane already in it. No separate `workspace
+create` is needed:
 
 ```bash
-git worktree add ../chesslines-3 -b feat/3-drill-loop origin/main
-ln -s ~/code/chesslines/node_modules ~/code/chesslines-3/node_modules
+herdr worktree create --cwd ~/code/chesslines \
+  --branch feat/3-drill-loop --base origin/main --no-focus
 ```
 
-The symlink is not optional: `node_modules/` is gitignored and Playwright's
-Chromium is not in git, so a fresh worktree cannot run `scripts/verify.mjs`
-until it has one.
+Run `git fetch origin` first, so `origin/main` is the real one.
 
-**Then say plainly that the session must continue in the new directory.** A
-worktree created and not moved into is worse than none — the work lands in the
-main clone on the wrong branch.
+Read the ids out of the response rather than predicting them:
+`.result.workspace.workspace_id` and `.result.root_pane.pane_id`. Keep the
+workspace id — `/accept-ticket` needs it to ask for cleanup.
 
-**Warn about `js/version.js`.** Every lane must bump it, every lane edits the
-same line, so parallel lanes conflict on every merge. Tell Boris this is
-coming rather than letting him meet it at merge time.
+The worktree lands under `~/.herdr/worktrees/<repo>/<branch-slug>`, not beside
+the clone; the slug replaces `/` with `-`, so `feat/15-parallel-lanes` becomes
+`feat-15-parallel-lanes`. Take the path from the response, not from that rule.
 
-## 5. Hand off
+**Symlink `node_modules` in.** It is not carried over, it is 18MB and
+gitignored, and Playwright's Chromium is not in git — without it the lane cannot
+run `npm test` at all, let alone `scripts/verify.mjs`:
 
-Report, in one short block: the ticket, what the blockers were and that they
-are closed, the card's new status, the branch (or worktree path), and what it
-was cut from.
+```bash
+ln -s ~/code/chesslines/node_modules <lane-path>/node_modules
+```
 
-Then **offer the next step, and stop**: *"Claimed and branched. Run
-`/implement <n>`?"* — one keystroke, but Boris's call.
+**Then run the suite in the lane, before handing it to an agent.** A lane that
+starts red wastes a whole session, and the failure is usually not the lane: when
+this was done by hand for #15, `npm test` failed on the build number, which
+turned out to be a real defect in #17. Run `npm test` in the lane path; if it is
+red, stop and say so rather than starting an agent on top of it.
 
-Offer rather than chain, for two reasons. A card in `Ready` means an agent can
-take the ticket **cold**; chaining hands `/implement` this session's whole
-context — board mechanics, git plumbing, whatever else was discussed — when a
-fresh window would serve it better. And this skill has just made three writes
-that are awkward to unpick (a claim, a commit, a push), which are worth seeing
-land before code starts.
+## 5. Start the agent in it
 
-**Never offer the chain after creating a worktree.** The session has to move to
-the new directory first, and an `/implement` started here would build in the
-old one — on the wrong branch, which is the failure step 4 already warns about.
-Say the directory to move to, and stop.
+```bash
+herdr agent start lane<n> --kind claude --pane <root-pane-id> \
+  -- --plugin-dir ~/code/mattpocock-skills
+```
 
-Whatever Boris picks, **do not start implementing in this invocation.**
+**The `--` passthrough is not optional.** `herdr agent start` launches a bare
+`claude`, and the engineering skills are not registered anywhere persistent —
+they are not in `enabledPlugins` in `~/.claude/settings.json` and reach a
+session only through `--plugin-dir`. Without it the lane has no `/implement`, no
+`/tdd`, no `/code-review`; the first attempt at #15's own lane died on exactly
+this, with `/mattpocock-skills:implement` answering "Unknown command".
+
+What hides it: `/start-ticket` and `/accept-ticket` *do* work in a lane, because
+they live in `.claude/skills/` inside the repo and are plugin-independent. Only
+the shared skills go missing, and only when you reach for one.
+
+Equivalently, `bin/cc-chesslines <lane-path>` does the same thing plus the
+GitHub-account check. Prefer it when starting a lane by hand in a shell; the
+`agent start` form above is what this skill uses, because Herdr must recognise
+the agent in order to name it.
+
+Name it `lane<n>` — stable, and the address `/accept-ticket` messages back from.
+
+Then hand it the ticket:
+
+```bash
+herdr agent prompt lane<n> "/mattpocock-skills:implement <n>"
+```
+
+**Chain here; do not offer.** The old rule was "offer, never chain", for two
+reasons that no longer hold. Chaining used to mean handing `/implement` this
+session's whole context — but a lane agent starts cold regardless, and inherits
+nothing. And the three writes were said to be worth watching land — but every
+one is reversible: card back to `Ready`, `herdr worktree remove --workspace
+<id>`, `git branch -D`.
+
+Do not `--wait`. Nothing here waits on anything: a launchpad blocked on one lane
+cannot start the next, which is the opposite of the point.
+
+## 6. Hand off
+
+Report, in one short block: the ticket, what the blockers were and that they are
+closed, the card's new status, the branch and lane path, the workspace id, and
+that the agent is building.
+
+Then **stop, and stay on `main`.** Do not implement anything in this
+invocation, and do not follow the lane into its work — the next thing this
+session does is open another lane or nothing at all.
+
+The lane will ping for itself when it is done, and `/accept-ticket` runs
+**in the lane**, not here.
 
 ## What not to do
 
 - Do not claim and then discover the ticket was blocked. Check first; a claim
   you have to undo is noise on the board.
-- Do not create a worktree by default. Branch is the common case.
-- Do not chain into `/implement` — offer it. Never even offer it after a
-  worktree.
-- Do not bump `js/version.js` here. Nothing has changed yet.
+- Do not check out the branch in this clone. The launchpad stays on `main`.
+- Do not start an agent without `--plugin-dir`. It will look fine until it
+  reaches for a skill.
+- Do not skip the `npm test` run in the lane. A red lane is a wasted session.
+- Do not bump `js/version.js` here — or anywhere by hand. It is derived
+  (`npm run build-number`), which is what stopped every parallel merge
+  conflicting on it (#17).
 - Do not add trailers to commits in this repo (`CLAUDE.md`).
