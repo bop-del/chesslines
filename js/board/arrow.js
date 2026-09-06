@@ -37,11 +37,17 @@ export function centre(name) {
 }
 
 // The shape of an arrow, in square units. Every variant on arrows.html is one
-// of these; the app ships whichever one is chosen.
+// of these; these are the ones chosen from it — the "Thin" variant, picked on
+// the phone against the real board in both themes (issue #27).
+//
+// Thin rather than the middle weight, and the reason is the pieces: a nine-
+// year-old is looking at a board, not at a diagram of one, and the arrow's job
+// is to point without becoming the thing he looks at. The quiet line was the
+// one that still left the knight on g1 readable underneath it.
 export const DEFAULTS = {
-    width: 0.16, // shaft thickness
-    head: 0.42, // length of the head along the arrow
-    spread: 0.34, // half-width of the head, so the full base is twice this
+    width: 0.10, // shaft thickness
+    head: 0.32, // length of the head along the arrow
+    spread: 0.24, // half-width of the head, so the full base is twice this
     // A gap at each end. Flush with the square centre the head buries itself in
     // the destination piece, and the tail starts under the piece it is about to
     // move — both ends read better held back a little.
