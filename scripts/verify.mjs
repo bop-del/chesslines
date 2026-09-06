@@ -752,6 +752,149 @@ const checks = [
     },
 
     {
+        name: 'the arrow points from the due own move’s square to its destination',
+        async run(page) {
+            // The geometry is unit-tested; what this adds is that the arrow the
+            // browser actually draws belongs to the move that is actually due.
+            // Nf3 again: the notation names neither square, so an arrow drawn
+            // off the wrong move would be invisible to a reader of the SAN.
+            const drawn = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                explain.offer({ san: 'e4' });
+                await new Promise((r) => setTimeout(r, 30)); // the opponent plays e5
+                const points = document.querySelector('.arrow')?.getAttribute('points');
+                return points?.split(' ').map((p) => p.split(',').map(Number));
+            });
+            assert(drawn, 'no arrow was drawn for the due move');
+            // A viewBox of 0 0 8 8, so a square is one unit and g1 is the cell
+            // whose centre is 6.5, 7.5. The tail corners straddle it; the tip
+            // is the fourth point and lies short of f3's centre at 5.5, 5.5.
+            const [tipX, tipY] = drawn[3];
+            assert(tipX > 5.5 && tipX < 5.9, `the tip is off f3: x ${tipX}`);
+            assert(tipY > 5.5 && tipY < 5.9, `the tip is off f3: y ${tipY}`);
+            // And it starts at g1, not somewhere else on the board.
+            assert(drawn[0][0] > 6.2 && drawn[0][1] > 7.0, `the tail is off g1: ${drawn[0]}`);
+        },
+    },
+
+    {
+        name: 'the arrow is absent whenever the rings are',
+        async run(page) {
+            // The arrow is part of the hint, not a second feature with its own
+            // rules — so every case that clears the rings must clear it too:
+            // the opponent's turn, Show me, and the switch.
+            const counts = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                const arrows = () => document.querySelectorAll('.arrow').length;
+
+                showLine('italian-game');
+                const due = arrows();
+
+                explain.offer({ san: 'e4' }); // the opponent's move is now pending
+                const thinking = arrows();
+
+                await new Promise((r) => setTimeout(r, 30));
+                showLine('italian-game');
+                document.querySelector('.show').click(); // Show me
+                await new Promise((r) => setTimeout(r, 30));
+                const showing = arrows();
+                document.querySelector('.show').click(); // Stop
+
+                showLine('italian-game');
+                document.querySelector('.hint-toggle').click(); // off
+                const off = arrows();
+                document.querySelector('.hint-toggle').click(); // back on, for later checks
+                return { due, thinking, showing, off, back: arrows() };
+            });
+            eq(counts.due, 1, 'arrows while his move is due');
+            eq(counts.thinking, 0, 'arrows during the opponent’s turn');
+            eq(counts.showing, 0, 'arrows during Show me');
+            eq(counts.off, 0, 'arrows with the hint switched off');
+            eq(counts.back, 1, 'arrows after switching it back on');
+        },
+    },
+
+    {
+        name: 'the arrow does not intercept taps',
+        async run(page) {
+            // The failure this feature could most easily have: an overlay
+            // covering all 64 squares that quietly eats the taps the board is
+            // made of. Asked of the browser rather than of the stylesheet —
+            // `elementFromPoint` answers what a real tap would hit.
+            const hit = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                explain.offer({ san: 'e4' });
+                await new Promise((r) => setTimeout(r, 30)); // the g1–f3 arrow
+                // f2 lies under the middle of that arrow — a square the knight
+                // never occupies, and exactly where an overlay would swallow.
+                const box = document
+                    .querySelector('.square[data-square="f2"]')
+                    .getBoundingClientRect();
+                const el = document.elementFromPoint(
+                    box.x + box.width / 2,
+                    box.y + box.height / 2,
+                );
+                return { square: el?.dataset?.square, tag: el?.tagName };
+            });
+            eq(hit.square, 'f2', `the tap landed on ${hit.tag} instead of the square`);
+        },
+    },
+
+    {
+        name: 'tapping under the arrow still selects the piece',
+        async run(page) {
+            // The same thing end to end rather than by hit-testing: the board
+            // has to *respond*, not merely be reachable.
+            const selected = await page.evaluate(async () => {
+                const { explain, showLine } = window.chesslines;
+                showLine('italian-game');
+                explain.offer({ san: 'e4' });
+                await new Promise((r) => setTimeout(r, 30));
+                // g1 carries the arrow's tail and the knight it marks.
+                document.querySelector('.square[data-square="g1"]').click();
+                return document.querySelector('.square[data-square="g1"]')
+                    .classList.contains('selected');
+            });
+            assert(selected, 'g1 did not select — the overlay is taking the tap');
+        },
+    },
+
+    {
+        name: 'the arrow follows the flipped board without turning over',
+        async run(page) {
+            // Playing Black rotates the board 180°, and the arrow rotates with
+            // it — unlike the pieces and the coordinates, which counter-rotate.
+            // An arrow has no up, so counter-rotating it would point it at the
+            // square it came from. The check is that it is *not* counter-rotated
+            // and still runs d7–d5 in board coordinates.
+            const drawn = await page.evaluate(async () => {
+                window.chesslines.showLine('scandinavian-defense');
+                await new Promise((r) => setTimeout(r, 30));
+                const svg = document.querySelector('.arrows');
+                return {
+                    points: document.querySelector('.arrow')
+                        ?.getAttribute('points').split(' ').map((p) => p.split(',').map(Number)),
+                    // Any counter-rotation would have to live here, the way the
+                    // pieces' does.
+                    transform: getComputedStyle(svg).transform,
+                };
+            });
+            assert(drawn.points, 'no arrow on a line taught from Black');
+            // d7 is 3.5, 1.5 and d5 is 3.5, 3.5 — down the board in board
+            // coordinates, which the rotation turns into "up" on screen.
+            const [tipX, tipY] = drawn.points[3];
+            assert(Math.abs(tipX - 3.5) < 0.1, `the tip is off the d-file: ${tipX}`);
+            assert(tipY > 2.9 && tipY < 3.5, `the tip is not short of d5: ${tipY}`);
+            assert(
+                drawn.transform === 'none',
+                `the overlay is counter-rotated (${drawn.transform}) — the head would point back`,
+            );
+        },
+    },
+
+    {
         name: 'nothing counts how the child did',
         async run(page) {
             // The no-streak rule, asserted rather than assumed: the app must
