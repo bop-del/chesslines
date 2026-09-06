@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>chesslines — arrow variants</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/board.css">
+<style>
+/* Page furniture only. Everything about the *board* comes from css/board.css —
+ * a variant that looked right against squares of its own would tell us
+ * nothing, which is the whole point of this page. */
+
+body { padding-bottom: 4rem; }
+
+.page {
+    max-width: 26rem;
+    margin: 0 auto;
+}
+
+.intro {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0 0 1.5rem;
+}
+
+.variant {
+    margin: 0 0 2.5rem;
+    /* A rule between variants, so two boards a scroll apart are visibly two
+     * answers and not one long page of chess. */
+    border-top: 1px solid var(--edge);
+    padding-top: 1rem;
+}
+
+.variant h2 {
+    font-size: 0.95rem;
+    margin: 0 0 0.15rem;
+}
+
+.variant p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0 0 0.75rem;
+}
+
+/* Two boards per variant: the pawn move it flatters, and the knight move that
+ * is where an arrow looks worst. Side by side on anything wider than a phone,
+ * stacked on the phone itself — where they are meant to be judged. */
+.pair {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 34rem) {
+    .pair { grid-template-columns: 1fr 1fr; }
+}
+
+.pair figure { margin: 0; }
+
+.pair figcaption {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The board's own width rule reserves 8rem of viewport height for the app's
+ * chrome, which is right there and wrong here — this page is a scrolling list
+ * and the boards should size off their column, not off the phone's height. */
+.pair .board {
+    width: 100%;
+    max-width: none;
+}
+
+/* The theme switch. This page has to be judged in both, and waiting for
+ * sunset is not a review process. It overrides the tokens the media query
+ * sets, so it has to come after base.css — it is here, and it is why these
+ * values are repeated rather than imported. */
+:root[data-theme="dark"] {
+    --bg: #171614;
+    --fg: #e8e3d9;
+    --muted: #9a938a;
+    --edge: #0d0c0b;
+    --square-light: #d8c2a0;
+    --square-dark: #9c7350;
+    --square-selected: #b3b85c;
+    --hint-from: rgb(125 180 240 / 0.85);
+    --hint-to: rgb(125 180 240 / 1);
+    --arrow: rgb(125 180 240 / 0.72);
+    --marker: rgb(0 0 0 / 0.38);
+    --accent: #c9a97e;
+}
+
+:root[data-theme="light"] {
+    --bg: #f4f1ea;
+    --fg: #23201c;
+    --muted: #6b645a;
+    --edge: #3a342c;
+    --square-light: #f0d9b5;
+    --square-dark: #b58863;
+    --square-selected: #cdd26a;
+    --hint-from: rgb(24 76 150 / 0.85);
+    --hint-to: rgb(24 76 150 / 1);
+    --arrow: rgb(24 76 150 / 0.72);
+    --marker: rgb(20 18 15 / 0.32);
+    --accent: #7a5c3e;
+}
+
+.controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.controls button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--bg);
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <h1>Arrow variants</h1>
+  <p class="intro">
+    Six treatments of the move arrow, each on a real board with the real
+    stylesheet (issue&nbsp;#27). Every variant twice: once on <b>1.e4</b>, the
+    move it flatters, and once on <b>Nf3</b>, where a straight arrow crosses a
+    square the knight never occupies and so looks its worst. Pick by looking,
+    on the phone. Not part of the app — nothing links here.
+  </p>
+
+  <div class="controls">
+    <button id="theme">Dark</button>
+    <button id="flip" aria-pressed="false">Flipped (Black’s view)</button>
+    <button id="rings" aria-pressed="true">Rings on</button>
+    <button id="taps">Test taps</button>
+  </div>
+  <p class="intro" id="tap-result" hidden></p>
+
+  <div id="variants"></div>
+</div>
+
+<script type="module">
+import { Chess } from './js/vendor/chess.js';
+import { Board } from './js/board/Board.js';
+import { overlay, draw } from './js/board/arrow.js';
+
+// The sprite, fetched rather than pasted. The app inlines it so `<use>`
+// resolves without a request (index.html); this page is dev scenery served
+// from the same origin, so a fetch costs nothing and a second copy of two
+// hundred lines of artwork would rot.
+const sprite = await fetch('css/pieces.svg').then((r) => r.text());
+document.body.insertAdjacentHTML('afterbegin', sprite);
+
+// The six variants. Thickness, head size and opacity are the axes that
+// actually change how an arrow reads; `round` softens the barbs by stroking
+// the polygon in its own colour, which is a different question from making it
+// thicker.
+const VARIANTS = [
+    {
+        name: 'Thin',
+        note: 'A quiet line. Least in the way of the pieces, and the one most likely to be missed.',
+        style: { width: 0.10, head: 0.32, spread: 0.24 },
+    },
+    {
+        name: 'Standard',
+        note: 'The middle. Lichess-ish proportions: the head about a third of a square, the shaft about a sixth.',
+        style: {},
+    },
+    {
+        name: 'Bold',
+        note: 'Hard to miss and hard to see past. The test is whether the knight on g1 is still identifiable underneath.',
+        style: { width: 0.26, head: 0.55, spread: 0.46 },
+    },
+    {
+        name: 'Big head',
+        note: 'A thin shaft with a large head — the destination shouts, the path stays out of the way.',
+        style: { width: 0.11, head: 0.60, spread: 0.44 },
+    },
+    {
+        name: 'Translucent',
+        note: 'Standard proportions at half alpha. The piece underneath survives; the arrow may not.',
+        style: {}, colour: 'rgb(24 76 150 / 0.42)',
+        dark: 'rgb(125 180 240 / 0.42)',
+    },
+    {
+        name: 'Opaque, rounded',
+        note: 'Full alpha with rounded barbs. The most confident, and the one that hides the most.',
+        style: { width: 0.20, head: 0.46, spread: 0.38, round: 0.06 },
+        colour: 'rgb(24 76 150 / 1)',
+        dark: 'rgb(125 180 240 / 1)',
+    },
+];
+
+// Two positions, two moves. e4 is the pawn move every arrow flatters; Nf3 is
+// the L-shaped one this page exists to judge.
+const MOVES = [
+    { label: '1.e4 — e2 to e4', from: 'e2', to: 'e4', moves: [] },
+    { label: 'Nf3 — g1 to f3, straight', from: 'g1', to: 'f3', moves: ['e4', 'e5'] },
+];
+
+const host = document.getElementById('variants');
+const boards = []; // every board built, so the switches can reach all of them
+
+for (const variant of VARIANTS) {
+    const section = document.createElement('section');
+    section.className = 'variant';
+    section.innerHTML =
+        `<h2>${variant.name}</h2><p>${variant.note}</p><div class="pair"></div>`;
+    const pair = section.querySelector('.pair');
+
+    for (const move of MOVES) {
+        const figure = document.createElement('figure');
+        const root = document.createElement('div');
+        figure.append(root);
+        const caption = document.createElement('figcaption');
+        caption.textContent = move.label;
+        figure.append(caption);
+        pair.append(figure);
+
+        // A real Board, not a rebuilt one — the same class the app uses, so a
+        // variant that survives here survives in the app.
+        const game = new Chess();
+        for (const san of move.moves) game.move(san);
+        const board = new Board(root, {
+            // Tapping is what the overlay must not break, so the boards here
+            // stay live and record what they heard.
+            onMove: (m) => {
+                game.move(m);
+                board.render(game);
+                redraw(board, move, variant);
+                heard.push(m.san);
+            },
+        });
+        board.render(game);
+        board.showMove(move.from, move.to);
+
+        const svg = overlay();
+        if (variant.colour) svg.style.setProperty('--arrow', variant.colour);
+        board.root.append(svg);
+        boards.push({ board, svg, move, variant });
+        redraw(board, move, variant);
+    }
+
+    host.append(section);
+}
+
+function redraw(board, move, variant) {
+    const entry = boards.find((b) => b.board === board);
+    if (entry) draw(entry.svg, move.from, move.to, variant.style);
+}
+
+// ─── The switches ────────────────────────────────────────────────────────────
+
+const heard = [];
+
+const theme = document.getElementById('theme');
+theme.addEventListener('click', () => {
+    const dark = document.documentElement.dataset.theme !== 'dark';
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    theme.textContent = dark ? 'Light' : 'Dark';
+    // The two variants that name their own colour have to follow the theme by
+    // hand: they are overriding the token the theme would otherwise supply.
+    for (const { svg, variant } of boards) {
+        if (!variant.colour) continue;
+        svg.style.setProperty('--arrow', dark ? variant.dark : variant.colour);
+    }
+});
+
+const flip = document.getElementById('flip');
+flip.addEventListener('click', () => {
+    const on = flip.getAttribute('aria-pressed') !== 'true';
+    flip.setAttribute('aria-pressed', String(on));
+    // No counter-rotation for the arrow, deliberately — see js/board/arrow.js.
+    // This switch is how that gets checked by eye: the head must still point
+    // at the destination and must not read as upside down.
+    for (const { board } of boards) board.flip(on ? 'b' : 'w');
+});
+
+const rings = document.getElementById('rings');
+rings.addEventListener('click', () => {
+    const on = rings.getAttribute('aria-pressed') !== 'true';
+    rings.setAttribute('aria-pressed', String(on));
+    rings.textContent = on ? 'Rings on' : 'Rings off';
+    // The ticket's open question: does the arrow replace the to-ring? Two
+    // strong marks on one square may be one too many, and the only way to know
+    // is to see it both ways.
+    for (const { board, move } of boards) {
+        if (on) board.showMove(move.from, move.to);
+        else board.showMove(null, null);
+    }
+});
+
+// The failure this feature could most easily have: an overlay covering all 64
+// squares that quietly eats taps. Tap through the middle of an arrow and this
+// says whether the board heard.
+const taps = document.getElementById('taps');
+const result = document.getElementById('tap-result');
+taps.addEventListener('click', () => {
+    heard.length = 0;
+    const { board } = boards[0];
+    // e2 lies under the tail of the first board's arrow; if the overlay is
+    // swallowing events, this selects nothing.
+    board.root.querySelector('.square[data-square="e2"]').click();
+    const selected = board.root.querySelectorAll('.square.selected').length;
+    result.hidden = false;
+    result.textContent = selected === 1
+        ? 'Taps get through: e2 selected under the arrow.'
+        : 'The overlay is swallowing taps — e2 did not select.';
+});
+</script>
+
+</body>
+</html>

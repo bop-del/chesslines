@@ -10,6 +10,8 @@
 // are also unambiguous for a child, and reachable by keyboard and screen reader
 // in a way drag never is.
 
+import { overlay, draw } from './arrow.js';
+
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
@@ -23,6 +25,7 @@ export class Board {
     #selected = null;
     #targets = new Map(); // 'e4' → move object, the legal moves from #selected
     #onMove;
+    #arrows; // the SVG overlay the move arrow is drawn into
 
     // `onMove(move)` is called with the chess.js move object the user chose.
     // The board never mutates game state itself — it renders what it is given
@@ -56,6 +59,12 @@ export class Board {
                 this.#root.append(el);
             }
         }
+
+        // The arrow overlay, last so it paints over the squares. It is out of
+        // flow and `pointer-events: none`, so it neither disturbs the grid nor
+        // takes the taps that belong to the squares underneath (issue #27).
+        this.#arrows = overlay();
+        this.#root.append(this.#arrows);
 
         // One listener on the board rather than 64 on the squares. Click covers
         // taps too — iOS synthesises it, and the 350ms delay is long gone for
@@ -169,12 +178,17 @@ export class Board {
     // Called with no arguments, it clears. There is no state to keep: every
     // render is followed by whoever owns the board deciding whether a hint is
     // due, so the board never has to remember whether one was.
+    // The arrow joins the rings rather than replacing them (issue #27). Two
+    // rings leave the reader to connect two marks; the arrow says *this piece
+    // goes there* directly. The from-ring is what still answers "which piece"
+    // when the arrow is short, so it stays.
     showMove(from, to) {
         for (const el of this.#squares.values()) {
             el.classList.remove('from-hint', 'to-hint');
         }
         if (from) this.#squares.get(from)?.classList.add('from-hint');
         if (to) this.#squares.get(to)?.classList.add('to-hint');
+        draw(this.#arrows, from, to);
     }
 
     // Playing Black means seeing the board from Black's side. Rotating the

@@ -32,6 +32,13 @@
     --hint-from: rgb(24 76 150 / 0.85);
     --hint-to: rgb(24 76 150 / 1);
 
+    /* The arrow (issue #27). The same blue as the rings, because it is the same
+     * mark — an arrow in a second colour would read as a second thing being
+     * said. Translucent, unlike the rings: the arrow crosses squares and the
+     * pieces on them, and an opaque one hides the piece it is about to move.
+     * The exact alpha is what arrows.html exists to settle. */
+    --arrow: rgb(24 76 150 / 0.72);
+
     /* The halo behind a coordinate label. The page background, held just short
      * of opaque: the label has to read the same on a light square and a dark
      * one (issue #13), but it is scaffolding and should not punch a solid hole
@@ -67,6 +74,10 @@
          * width carrying the weighting. */
         --hint-from: rgb(125 180 240 / 0.85);
         --hint-to: rgb(125 180 240 / 1);
+
+        /* Lighter for the same reason the rings are: the squares dim, and the
+         * light theme's blue over a dimmed square reads as a hole. */
+        --arrow: rgb(125 180 240 / 0.72);
 
         --accent: #c9a97e;
     }

@@ -224,3 +224,44 @@
 .board.flipped.coords .square[data-file]::after {
     transform: rotate(180deg);
 }
+
+/* ── The move arrow ──────────────────────────────────────────────────────────
+ * One SVG over all 64 squares, saying *this piece goes there* directly instead
+ * of leaving two rings to be connected (issue #27). The rings stay: the
+ * from-ring still answers "which piece" when the arrow is short.
+ *
+ * Absolutely positioned over the board's content box, not placed as a grid
+ * item spanning it. The grid version is the obvious one and it is wrong: the
+ * overlay becomes a 65th item, the eight `minmax(0, 1fr)` rows have to find
+ * room for it as well as the squares, and the squares collapse to half height
+ * — measured, not guessed. Out of flow it cannot affect the tracks at all, and
+ * `inset: 0` on the board's padding box is the same eight-by-eight box the
+ * squares fill, so the two stay aligned by construction. A misaligned overlay
+ * points between squares, which is the one way an arrow is worse than none.
+ *
+ * `pointer-events: none` is the load-bearing line. The overlay covers every
+ * square, so without it the board stops responding wherever the arrow lies —
+ * and a board that ignores taps in the middle is the worst failure this
+ * feature could have. It is set in js/board/arrow.js as well, so a stylesheet
+ * that fails to load cannot take the board's taps with it. */
+.board {
+    /* The overlay's containing block. The squares were already
+     * `position: relative` for their own pseudo-elements; this does the same
+     * job one level up and changes nothing else about the board. */
+    position: relative;
+}
+
+.board .arrows {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+/* No counter-rotation for the flipped board, unlike the pieces and the
+ * coordinate labels. Those have an up; an arrow does not. The board rotates
+ * 180° and the arrow rotates with it, still pointing from the piece to its
+ * destination — seen from Black's side, which is the point. */
+
+.board .arrow {
+    fill: var(--arrow);
+}
