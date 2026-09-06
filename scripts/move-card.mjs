@@ -15,6 +15,7 @@
 // Re-running is safe: a card already in the target column is left alone.
 
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 // From docs/agents/issue-tracker.md, which is the source of truth for these.
 // Adding or renaming a column mints new ids for *every* option, so if one of
@@ -43,7 +44,7 @@ function die(message) {
     process.exit(1);
 }
 
-export function main(argv) {
+function main(argv) {
     const issue = argv[0];
     const target = argv[1] ?? 'Done';
 
@@ -66,8 +67,19 @@ export function main(argv) {
         die(`#${issue} has no card on project ${PROJECT} — add it with 'gh project item-add'`);
     }
 
+    // Already there is normally a re-run, which must be safe and quiet. But a
+    // card that reads `Done` *before* its merge is the state the board rules
+    // exist to prevent — an agent having done the deciding — and the old
+    // "confirm the card reads Done" check would have caught it. Prevention
+    // replacing detection is a downgrade, so say it loudly enough to notice.
     if (card.status === target) {
         console.log(`#${issue} is already ${target}`);
+        if (target === 'Done') {
+            console.log(
+                '  note: nothing moved. If this ran before the merge, something ' +
+                'else moved the card — find out what.',
+            );
+        }
         return;
     }
 
@@ -82,4 +94,7 @@ export function main(argv) {
     console.log(`#${issue}: ${card.status ?? 'no status'} → ${target}`);
 }
 
-main(process.argv.slice(2));
+// Only when run as a command. Without the guard, importing this file — a test
+// reaching for STATUS, a future script reusing it — runs main() and exits the
+// importing process. build-number.mjs guards the same shape.
+if (process.argv[1] === fileURLToPath(import.meta.url)) main(process.argv.slice(2));

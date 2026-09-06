@@ -128,7 +128,8 @@ git rebase origin/main && npm run build-number
 
 A lane that bumped mid-flight had to bump again after the rebase, which is
 where #22 found four `Set the build number to what history says` commits on
-`main` in a single day.
+`main` in a single day. Run before the rebase, `build-number` refuses and says
+so — the order is checked rather than remembered.
 
 **Never edit `js/version.js` by hand.** `npm test` asserts it matches what
 history says, so a hand edit fails the suite.
