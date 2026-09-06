@@ -35,12 +35,50 @@ const VERSION = join(ROOT, 'js', 'version.js');
 // fixed point: writing it cannot change what it should be.
 const SHIPPED = ['index.html', 'css/', 'js/', ':!js/version.js'];
 
+function git(...args) {
+    return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+}
+
+function countAt(ref) {
+    return Number(git('rev-list', '--count', ref, '--', ...SHIPPED));
+}
+
+// The number this checkout owes: what will be on Pages once everything here has
+// landed. This is what `npm run build-number` writes.
 export function buildNumber() {
-    const out = execFileSync('git', ['rev-list', '--count', 'HEAD', '--', ...SHIPPED], {
-        cwd: ROOT,
-        encoding: 'utf8',
-    });
-    return `b${out.trim()}`;
+    return `b${countAt('HEAD')}`;
+}
+
+// Where "landed" is measured from. On `main` that is HEAD itself; on a lane it
+// is the point the lane was cut from, because the lane's own shipped commits
+// have not reached Pages yet.
+//
+// Falls back to HEAD when there is no `origin/main` to compare against — a
+// fresh clone with no remote, or `main` itself before the first fetch. Then
+// every commit counts as landed, which is the old behaviour and the right one:
+// there is no lane to be ahead of.
+function landedRef() {
+    try {
+        git('rev-parse', '--verify', '--quiet', 'origin/main');
+    } catch {
+        return 'HEAD';
+    }
+
+    // The merge base, not `origin/main` itself. A lane that has not rebased is
+    // *behind* on other lanes' work as well as ahead on its own; the base is
+    // the only point both agree on, so it is the number the lane was handed.
+    return git('merge-base', 'HEAD', 'origin/main');
+}
+
+// The number that is live — the one js/version.js should be holding right now.
+export function landedBuildNumber() {
+    return `b${countAt(landedRef())}`;
+}
+
+// Shipped commits on this lane that have not landed. Zero on `main`, which is
+// what makes the number written there final.
+export function pendingCommits() {
+    return countAt('HEAD') - countAt(landedRef());
 }
 
 function main() {
