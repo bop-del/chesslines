@@ -221,11 +221,24 @@ things a fast-forward cannot do:
 
 ```bash
 gh pr create --title "<the ticket's title>" --body "<see below>"
-gh pr merge --rebase --delete-branch
+gh pr merge --rebase
+git push origin --delete <branch>
 ```
 
 `--rebase`, so `main` keeps the straight history it has now. A merge commit per
 lane is the cost this repo does not have to pay.
+
+**Not `--delete-branch`.** It fails in a lane, and the reason is the lane
+architecture working as intended — it checks out `main` locally to clean up, and
+the launchpad is holding it:
+
+```
+failed to run git: fatal: 'main' is already used by worktree at '.../code/chesslines'
+```
+
+Measured on #15's own merge, the first real run of this section. The merge
+itself succeeds and only the cleanup fails, so the branch is left behind on the
+remote — delete it explicitly instead.
 
 **The PR body carries what the walk judged.** This matters more than the PR
 itself: on #14 that record went into an issue comment, where it sits away from
