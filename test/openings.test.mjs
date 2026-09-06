@@ -106,11 +106,14 @@ test('every move text is written in both languages', () => {
     }
 });
 
-test('an opening without move texts is still valid data', () => {
-    // Nine of twelve ship without texts and show as inert list entries. That is
-    // a state the data model allows on purpose, not a half-finished migration.
+test('every opening now carries its move texts', () => {
+    // #12 filled in the nine that shipped inert, so all twelve are tappable.
+    // The data model still allows a textless entry — Walk and the list both
+    // guard for it, so a thirteenth opening can be added before its texts are
+    // written — but nothing is in that state today, and this says so.
     const withText = OPENINGS.filter((o) => o.moves);
-    assert.equal(withText.length, 3, 'three openings ship with move texts');
+    assert.equal(withText.length, OPENINGS.length,
+        `${OPENINGS.length - withText.length} openings still have no move texts`);
     for (const o of OPENINGS.filter((o) => !o.moves)) {
         assert.equal(o.intro, undefined, `${o.id}: intro without moves`);
     }

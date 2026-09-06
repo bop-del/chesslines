@@ -379,13 +379,22 @@ const checks = [
     {
         name: 'the list shows every line, and only the ready ones are tappable',
         async run(page) {
+            // The tappable count is read from the data rather than typed, so
+            // that filling in a line's move texts does not need this number
+            // edited too — #12 had to change it once already. What is being
+            // checked is the *rule*: a line is tappable exactly when it has
+            // texts to walk.
             await page.evaluate(() => window.chesslines.showList());
-            const { total, enabled } = await page.evaluate(() => {
+            const { total, enabled, ready } = await page.evaluate(() => {
                 const b = [...document.querySelectorAll('#list button.line')];
-                return { total: b.length, enabled: b.filter((x) => !x.disabled).length };
+                return {
+                    total: b.length,
+                    enabled: b.filter((x) => !x.disabled).length,
+                    ready: window.chesslines.OPENINGS.filter((o) => o.moves?.length).length,
+                };
             });
             assert(total === 12, `${total} lines listed, expected 12`);
-            assert(enabled === 3, `${enabled} tappable, expected the 3 with move texts`);
+            assert(enabled === ready, `${enabled} tappable, expected the ${ready} with move texts`);
         },
     },
 
