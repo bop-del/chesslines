@@ -913,7 +913,11 @@ const checks = [
                 await new Promise((r) => setTimeout(r, 30));
                 return Object.keys(localStorage);
             });
-            const unexpected = keys.filter((k) => !['lang', 'hint'].includes(k));
+            // `repertoire` is allowed to exist but is checked below for what
+            // it may hold: it carries a level and a due day per position, and
+            // no record of right and wrong — that is the data a streak is
+            // built from, and it is what must not be here.
+            const unexpected = keys.filter((k) => !['lang', 'hint', 'repertoire'].includes(k));
             assert(unexpected.length === 0, `unexpected storage keys: ${unexpected.join(', ')}`);
         },
     },
@@ -992,13 +996,202 @@ const checks = [
     },
 
     {
+        name: 'the repertoire survives a reload through localStorage',
+        async run(page) {
+            // The one thing a unit test structurally cannot do: prove the
+            // module reaches a real localStorage in a real browser, over HTTP,
+            // and that what it wrote comes back after a reload.
+            const before = await page.evaluate(() => {
+                const { store, OPENINGS } = window.chesslines;
+                const r = new store.Repertoire();
+                r.adopt(OPENINGS.find((o) => o.id === 'italian-game'));
+                r.grade(r.cards[0].key, { level: 3, best: 4, due: 11 });
+                store.save(r);
+                return r.toJSON();
+            });
+            await page.reload({ waitUntil: 'networkidle' });
+            const after = await page.evaluate(() =>
+                window.chesslines.repertoire.toJSON());
+            eq(JSON.stringify(after), JSON.stringify(before), 'the repertoire after a reload');
+
+            await page.evaluate(() => localStorage.removeItem(window.chesslines.store.KEY));
+            await page.reload({ waitUntil: 'networkidle' });
+        },
+    },
+
+    {
+        name: 'a shared position is one card, whichever line taught it',
+        async run(page) {
+            // ADR 0007 in the browser: five lines pass through 1. e4 e5, and
+            // practising it once must count for all of them.
+            const { cards, lines, keys } = await page.evaluate(() => {
+                const { store, OPENINGS } = window.chesslines;
+                const r = new store.Repertoire();
+                for (const id of ['italian-game', 'ruy-lopez', 'scotch-game']) {
+                    r.adopt(OPENINGS.find((o) => o.id === id));
+                }
+                const shared = r.card('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -');
+                return { cards: r.cards.length, lines: shared?.lines ?? [], keys: r.cards.map((c) => c.key) };
+            });
+            eq(lines.length, 3, 'lines on the card after 1. e4 e5');
+            eq(new Set(keys).size, cards, 'a position produced more than one card');
+        },
+    },
+
+    {
+        name: 'removing a line keeps the progress, and re-adopting wakes it',
+        async run(page) {
+            const out = await page.evaluate(() => {
+                const { store, OPENINGS } = window.chesslines;
+                const italian = OPENINGS.find((o) => o.id === 'italian-game');
+                const r = new store.Repertoire();
+                r.adopt(italian);
+                const k = r.cards[0].key;
+                r.grade(k, { level: 4, best: 5, due: 30 });
+
+                r.remove('italian-game');
+                const asleep = r.card(k);
+                const dormant = r.isDormant(asleep);
+                const stored = JSON.stringify(r.toJSON());
+
+                r.adopt(italian);
+                const awake = r.card(k);
+                return {
+                    dormant,
+                    saysDormant: stored.includes('dormant'),
+                    asleep: [asleep.level, asleep.best, asleep.due],
+                    awake: [awake.level, awake.best, awake.due, r.isDormant(awake)],
+                };
+            });
+            assert(out.dormant === true, 'the card did not go dormant');
+            assert(out.saysDormant === false, 'dormancy reached the stored form');
+            eq(String(out.asleep), '4,5,30', 'a dormant card’s numbers');
+            eq(String(out.awake), '4,5,30,false', 'the card after re-adopting');
+        },
+    },
+
+    {
+        name: 'import merges rather than replacing, and never lowers a level',
+        async run(page) {
+            const out = await page.evaluate(() => {
+                const { store, OPENINGS } = window.chesslines;
+                const italian = OPENINGS.find((o) => o.id === 'italian-game');
+
+                const file = new store.Repertoire();
+                file.adopt(italian);
+                file.adopt(OPENINGS.find((o) => o.id === 'scandinavian-defense'));
+                const k = file.cards[0].key;
+                file.grade(k, { level: 5, best: 3, due: 40 });
+                const text = store.toFile(file);
+
+                const mine = new store.Repertoire();
+                mine.adopt(italian);
+                mine.grade(k, { level: 2, best: 6, due: 10 });
+                mine.merge(JSON.parse(text), OPENINGS);
+
+                const card = mine.card(k);
+                return { level: card.level, best: card.best, lines: [...mine.lines].sort() };
+            });
+            eq(out.level, 5, 'the higher current level should win');
+            eq(out.best, 6, 'the higher best level should win');
+            eq(out.lines.join(','), 'italian-game,scandinavian-defense', 'lines after the merge');
+        },
+    },
+
+    {
+        name: 'a file naming a line this build lost still imports its cards',
+        async run(page) {
+            // The case export exists for is a wiped device, where refusing an
+            // import means losing everything (#40).
+            const out = await page.evaluate(() => {
+                const { store, OPENINGS } = window.chesslines;
+                const doc = {
+                    v: 1,
+                    lines: ['kings-head-gambit'],
+                    cards: [{ key: 'k7/8/8/8/8/8/8/K7 w - -', level: 3, best: 3, due: 9, lines: ['kings-head-gambit'] }],
+                };
+                const r = store.Repertoire.from(doc, OPENINGS);
+                const card = r.card('k7/8/8/8/8/8/8/K7 w - -');
+                return { lines: [...r.lines], level: card?.level ?? null, dormant: card && r.isDormant(card) };
+            });
+            eq(out.lines.length, 0, 'an unknown line was adopted');
+            eq(out.level, 3, 'the card’s progress');
+            assert(out.dormant === true, 'the card should arrive dormant');
+        },
+    },
+
+    {
+        name: 'the export file is named for the day and is the stored form',
+        async run(page) {
+            // `<a download>` is the only mechanism Safari supports —
+            // showSaveFilePicker is unsupported there, so the File System
+            // Access API is out. This drives the real anchor.
+            const out = await page.evaluate(() => {
+                const { store, OPENINGS } = window.chesslines;
+                const r = new store.Repertoire();
+                r.adopt(OPENINGS.find((o) => o.id === 'italian-game'));
+                const clicked = [];
+                const real = HTMLAnchorElement.prototype.click;
+                HTMLAnchorElement.prototype.click = function () { clicked.push(this.download); };
+                let name;
+                try {
+                    name = store.download(r, document, new Date('2026-09-08T21:30:00'));
+                } finally {
+                    HTMLAnchorElement.prototype.click = real;
+                }
+                return {
+                    name,
+                    clicked,
+                    left: document.querySelectorAll('a[download]').length,
+                    roundTrips: JSON.stringify(store.parseFile(store.toFile(r), OPENINGS).toJSON())
+                        === JSON.stringify(r.toJSON()),
+                };
+            });
+            eq(out.name, 'chesslines-2026-09-08.json', 'the file name');
+            eq(out.clicked.join(','), 'chesslines-2026-09-08.json', 'the anchor that was clicked');
+            eq(out.left, 0, 'anchors left in the document');
+            assert(out.roundTrips === true, 'the file did not read back as the stored form');
+        },
+    },
+
+    {
+        name: 'a refused write leaves the app working',
+        async run(page) {
+            // A private window. The visit must still work — it is simply not
+            // remembered (ADR 0008).
+            const out = await page.evaluate(() => {
+                const { store, OPENINGS } = window.chesslines;
+                const r = new store.Repertoire();
+                r.adopt(OPENINGS.find((o) => o.id === 'italian-game'));
+                const refusing = {
+                    getItem: () => { throw new DOMException('SecurityError'); },
+                    setItem: () => { throw new DOMException('QuotaExceededError'); },
+                };
+                return {
+                    saved: store.save(r, refusing),
+                    cards: r.cards.length,
+                    loaded: store.load(OPENINGS, refusing).cards.length,
+                };
+            });
+            assert(out.saved === false, 'a refused write reported success');
+            assert(out.cards > 0, 'the in-memory repertoire was lost');
+            eq(out.loaded, 0, 'a refused read should load as empty');
+        },
+    },
+
+    {
         name: 'no German letter ever reaches storage',
         async run(page) {
-            // ADR 0009's rule. What is stored is a language preference and
-            // nothing else at this stage; the check exists so it stays that way.
+            // ADR 0009's rule, checked against the repertoire itself — the
+            // file where it matters most, since an export made in German has
+            // to import into English.
             const stored = await page.evaluate(() => {
                 window.chesslines.showLine('italian-game');
                 window.chesslines.explain.offer({ san: 'e4' });
+                const { store, OPENINGS } = window.chesslines;
+                const r = new store.Repertoire();
+                for (const o of OPENINGS) r.adopt(o);
+                store.save(r);
                 const out = {};
                 for (let i = 0; i < localStorage.length; i += 1) {
                     const k = localStorage.key(i);
@@ -1009,6 +1202,8 @@ const checks = [
             const bad = Object.entries(stored)
                 .filter(([, v]) => /\b[DTLS]\d?[a-h]?[1-8]\b/.test(v));
             assert(bad.length === 0, `German notation in storage: ${JSON.stringify(bad)}`);
+            // Leave storage as it was found: the checks after this one read it.
+            await page.evaluate(() => localStorage.removeItem(window.chesslines.store.KEY));
         },
     },
 

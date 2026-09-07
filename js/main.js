@@ -8,6 +8,8 @@ import { nameOf, nameOfLine } from './data/catalogue.js';
 import { parse } from './data/pgn.js';
 import { key } from './data/position.js';
 import { Walk } from './train/walk.js';
+import { Repertoire, TODAY } from './data/repertoire.js';
+import { KEY, load, save, filename, toFile, parseFile, download } from './data/store.js';
 import { List } from './ui/list.js';
 import { Explain } from './ui/explain.js';
 import { LANGUAGES, san, t } from './i18n/i18n.js';
@@ -41,6 +43,12 @@ const hint = (() => {
         return true;
     }
 })();
+
+// The repertoire, read once at start-up. Nothing is on screen yet — Adopt and
+// Drill land later — so this is the state those modes will consume, kept whole
+// across a visit and written through the same try/catch as the preferences
+// above (ADR 0008).
+const repertoire = load(OPENINGS);
 
 const listEl = document.getElementById('list-screen');
 const listBody = document.getElementById('list');
@@ -129,6 +137,10 @@ showList();
 // what the UI claims about itself.
 window.chesslines = {
     game, board, OPENINGS, nameOf, nameOfLine, parse, key, Walk, san, t,
+    // The repertoire and the whole edge around it, so the verification run
+    // asserts on real stored state rather than on what the UI claims.
+    repertoire,
+    store: { KEY, Repertoire, TODAY, load, save, filename, toFile, parseFile, download },
     get lang() {
         return lang;
     },
