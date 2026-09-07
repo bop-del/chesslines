@@ -105,3 +105,15 @@ _Avoid_: menu, nav, mode (a tab is the control, not the thing)
 The lines Felix has adopted, and what the Mine tab shows. His data, in his
 browser, keyed by position. Adopting is the only way anything enters it.
 _Avoid_: my openings, collection, favourites, saved lines
+
+**Card**:
+One position Felix answers, with the ladder level and due day for it. Shared
+between every line that passes through that position, so practising it once
+counts everywhere.
+_Avoid_: item, entry, position (that is the chess term), node
+
+**Dormant card**:
+A card no adopted line points at any more. Drill never schedules it, and it
+keeps its level and due day — removing a line must not cost progress. It wakes
+if the line is adopted again.
+_Avoid_: orphaned, deleted, archived, stale
