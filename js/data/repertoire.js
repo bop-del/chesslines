@@ -30,30 +30,43 @@ import { key } from './position.js';
 // would shift every due date at once, which is why it is one line with a test.
 const DAY = 86_400_000;
 
-export const TODAY = (now = new Date()) =>
+export const today = (now = new Date()) =>
     Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / DAY);
 
-// The positions of one line where Felix moves, in order.
+// The position keys of one line where Felix moves, in order.
 //
 // The line's own `moves` are walked through a real game, so the key is the one
 // the engine produces rather than one assembled from strings — the same source
 // the board and the walk use.
 export function cardsFor(line) {
     const game = new Chess();
-    const cards = [];
+    const keys = [];
     for (const move of line.moves ?? []) {
-        if (game.turn() === line.side) cards.push({ key: key(game.fen()), lines: [line.id] });
+        if (game.turn() === line.side) keys.push(key(game.fen()));
         game.move(move.san);
     }
-    return cards;
+    return keys;
 }
 
 const card = (k) => ({ key: k, level: 0, best: 0, due: 0, lines: [] });
 
+// One message, thrown from both places a file can be rejected — here and in
+// store.js. It is the one string in this layer a child could ever see, so it
+// lives in one place ready for i18n rather than being retyped.
+export const NOT_A_REPERTOIRE = 'That file is not a chesslines repertoire.';
+
+// The stored shape's version. Read as well as written: a tag nothing checks
+// gives false confidence at the migration it exists for. Only version 1 exists,
+// so the check is "this is a shape I know", and a future version arriving here
+// is refused rather than silently half-read.
+export const VERSION = 1;
+
 // Is this a document this build can read? Import runs on a file a child chose
 // from a file picker, so "it is an object" is not enough of an answer.
 const isDocument = (doc) =>
-    !!doc && typeof doc === 'object' && Array.isArray(doc.lines) && Array.isArray(doc.cards);
+    !!doc && typeof doc === 'object'
+    && (doc.v === undefined || doc.v <= VERSION)
+    && Array.isArray(doc.lines) && Array.isArray(doc.cards);
 
 export class Repertoire {
     #lines = new Set();
@@ -80,7 +93,7 @@ export class Repertoire {
     // restart it.
     adopt(line) {
         this.#lines.add(line.id);
-        for (const { key: k } of cardsFor(line)) {
+        for (const k of cardsFor(line)) {
             const existing = this.#cards.get(k) ?? card(k);
             if (!existing.lines.includes(line.id)) existing.lines.push(line.id);
             this.#cards.set(k, existing);
@@ -109,8 +122,8 @@ export class Repertoire {
 
     // What Drill would schedule today: live cards that are due. Dormancy is one
     // filter at planning time, which is the whole of what deriving it costs.
-    due(today = TODAY()) {
-        return this.cards.filter((c) => !this.isDormant(c) && c.due <= today);
+    due(day = today()) {
+        return this.cards.filter((c) => !this.isDormant(c) && c.due <= day);
     }
 
     // Record where a card has got to. The ladder itself is not this module's
@@ -140,29 +153,48 @@ export class Repertoire {
     // survive this on their own because they are keyed by position, and a
     // position is a position whoever named it.
     merge(doc, known) {
-        if (!isDocument(doc)) throw new Error('That file is not a chesslines repertoire.');
+        if (!isDocument(doc)) throw new Error(NOT_A_REPERTOIRE);
         const ids = new Set(known.map((o) => o.id));
 
+        // Built first, applied at the end. A file a child picked can be
+        // anything, and a merge that threw halfway would leave a repertoire
+        // that is neither what it was nor what the file says — the one outcome
+        // worse than refusing outright.
+        const lines = [];
+        const cards = [];
+
         for (const id of doc.lines) {
-            if (ids.has(id)) this.#lines.add(id);
+            if (ids.has(id)) lines.push(id);
         }
 
         for (const incoming of doc.cards) {
             if (!incoming || typeof incoming.key !== 'string') continue;
-            const mine = this.#cards.get(incoming.key) ?? card(incoming.key);
+            const held = this.#cards.get(incoming.key);
+            const mine = held ? { ...held, lines: [...held.lines] } : card(incoming.key);
 
             // Higher wins on both numbers, independently. Taking the higher
             // best level is not optional: the meter only goes up, and an import
             // that lowered it would break that rule through the back door.
             mine.level = Math.max(mine.level, incoming.level ?? 0);
             mine.best = Math.max(mine.best, incoming.best ?? 0, mine.level);
-            mine.due = Math.max(mine.due, incoming.due ?? 0);
+
+            // The due day is the one number #40 does not rule on, because it
+            // asks only about the two levels. The **earlier** day wins, which
+            // is the direction that cannot lose anything: a card that comes up
+            // sooner than it strictly needed to costs one extra answer, while
+            // one pushed further out disappears from practice silently — and
+            // silent loss is the failure this whole map is arranged against.
+            // A card new to the store takes the file's day as it stands.
+            mine.due = held ? Math.min(mine.due, incoming.due ?? 0) : incoming.due ?? 0;
 
             for (const id of incoming.lines ?? []) {
                 if (ids.has(id) && !mine.lines.includes(id)) mine.lines.push(id);
             }
-            this.#cards.set(incoming.key, mine);
+            cards.push(mine);
         }
+
+        for (const id of lines) this.#lines.add(id);
+        for (const c of cards) this.#cards.set(c.key, c);
         return this;
     }
 
@@ -174,7 +206,7 @@ export class Repertoire {
     // #41 rules out.
     toJSON() {
         return {
-            v: 1,
+            v: VERSION,
             lines: [...this.#lines],
             cards: this.cards.map((c) => ({
                 key: c.key,
