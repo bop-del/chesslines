@@ -33,13 +33,142 @@
     color: var(--fg);
 }
 
-.screen-title {
-    font-size: 0.85rem;
+/* ---- The tabs ---- */
+/* The list screen's structure is topbar, tabs, tab content, footer (#44). Only
+ * the tabs and the footer are here; the topbar is above and the content is the
+ * list itself. */
+
+.tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.9rem;
+}
+
+.tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    flex: 1;
+    text-align: left;
+    padding: 0.45rem 0.6rem;
+    /* Keeps the 44px minimum from base.css. The live tab is a real target and a
+     * nine-year-old's aim is worse than an adult's; the greyed ones match its
+     * height so the bar is one row rather than three of different sizes. */
+}
+
+.tab-label {
+    font-size: 0.9rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+}
+
+/* The condition that opens a greyed tab. Small and muted — it is an
+ * explanation, not an offer — and it wraps rather than truncating, because a
+ * half-shown route is worse than no route. */
+.tab-when {
+    font-size: 0.7rem;
+    line-height: 1.25;
     color: var(--muted);
-    margin: 0 0 0.5rem;
+}
+
+/* A tab he cannot use yet. The same treatment as an opening whose texts are not
+ * written (`.line:disabled` below): shown rather than hidden, dashed, plainly
+ * not ready. Nothing counts here and nothing fills up — the tab states its
+ * route in words, which is what makes it an explanation rather than a prize. */
+.tab:disabled {
+    opacity: 0.45;
+    cursor: default;
+    border-style: dashed;
+}
+
+/* The live tab, marked by weight rather than by a colour: it is the one he is
+ * on, not a thing that has been won. */
+.tab[aria-selected='true'] {
+    border-color: var(--accent);
+}
+
+/* On a phone the three tabs share 375px minus the body padding, and the greyed
+ * ones each carry a sentence. Stacking the condition under the label is what
+ * makes that fit; below this width the labels themselves would clip. */
+@media (max-width: 22rem) {
+    .tabs {
+        gap: 0.25rem;
+    }
+
+    .tab {
+        padding: 0.4rem 0.4rem;
+    }
+}
+
+/* ---- The footer ---- */
+/* Export and import. A parent's tool (#41): always present, never behind a
+ * mode, and at the bottom, so reaching them means deliberately scrolling past
+ * everything Felix cares about. They belong to the screen rather than to a tab,
+ * so they are reachable from all three — which is what keeps import usable on a
+ * wiped device, when Mine is greyed and there is nothing to export. */
+
+.footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+}
+
+/* Styled like the language button, and for its reason: an adult's control,
+ * present but not calling to a child. Muted, transparent border, smaller than
+ * the openings — it must not read as a thing to tap on the way past. */
+.footer-control {
+    font: inherit;
+    color: var(--muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    min-height: 0;
+    font-size: 0.8rem;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.footer-control:hover,
+.footer-control:focus-visible {
+    border-color: var(--edge);
+    color: var(--fg);
+}
+
+/* The import label needs its own rule: the focus lands on the hidden input
+ * inside it, so the label never matches `:focus-visible` itself. It is scoped
+ * to the input rather than written as `:focus-within` on the control, which on
+ * the export button would also match a plain mouse click and leave a border
+ * behind on a control whose whole job is to stay quiet. */
+.footer-control:has(.footer-file:focus-visible) {
+    border-color: var(--edge);
+    color: var(--fg);
+}
+
+/* The file input itself. Hidden, because `<input type="file">` cannot be styled
+ * and its label is what is tapped — but hidden by clipping rather than by
+ * `display: none`, which would take it out of the tab order and leave import
+ * unreachable from a keyboard. */
+.footer-file {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* Only ever a failure. A successful import says nothing: the openings simply
+ * are what the file says, and announcing it would be a celebration. */
+.footer-message {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted);
 }
 
 /* ---- The list ---- */

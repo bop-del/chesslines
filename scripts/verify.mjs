@@ -962,13 +962,13 @@ const checks = [
     {
         name: 'the language toggle changes the interface',
         async run(page) {
-            const before = await page.evaluate(() => {
-                window.chesslines.showList();
-                return document.getElementById('list-title').textContent;
-            });
+            // The Openings tab label is the list screen's heading now — the
+            // screen title that used to sit under it said the same word twice.
+            const label = '.tab[data-tab="openings"] .tab-label';
+            await page.evaluate(() => window.chesslines.showList());
+            const before = await page.locator(label).textContent();
             await page.click('#lang');
-            const after = await page.evaluate(() =>
-                document.getElementById('list-title').textContent);
+            const after = await page.locator(label).textContent();
             assert(before !== after, `title did not change: "${before}"`);
             await page.click('#lang');
         },
@@ -1274,6 +1274,224 @@ const checks = [
             assert(drifted.length === 0, `drifted from css/base.css — ${drifted.join('; ')}`);
         },
     },
+    {
+        name: 'three tabs, Openings live and the other two greyed',
+        async run(page) {
+            await reset(page);
+            const tabs = page.locator('.tab');
+            eq(await tabs.count(), 3, 'tab count');
+            eq(await page.locator('.tab[data-tab="openings"]').isDisabled(), false, 'Openings is live');
+            eq(await page.locator('.tab[data-tab="mine"]').isDisabled(), true, 'Mine is greyed');
+            eq(await page.locator('.tab[data-tab="practise"]').isDisabled(), true, 'Practise is greyed');
+        },
+    },
+
+    {
+        name: 'each greyed tab states the condition that opens it',
+        async run(page) {
+            await reset(page);
+            for (const id of ['mine', 'practise']) {
+                const when = page.locator(`.tab[data-tab="${id}"] .tab-when`);
+                eq(await when.count(), 1, `${id} has a condition line`);
+                const text = (await when.textContent()).trim();
+                assert(text.length > 0, `${id}'s condition is empty`);
+                // #47: it names an action he can take, never a clock. Practise's
+                // real condition is due-ness, and saying so would be a locked
+                // door with no key.
+                assert(
+                    !/\bdue\b|\bf(ä|ae)llig\b|\btomorrow\b|\bmorgen\b/i.test(text),
+                    `${id}'s condition names a clock: "${text}"`,
+                );
+            }
+        },
+    },
+
+    {
+        name: 'nothing in the tab bar counts or accumulates',
+        async run(page) {
+            await reset(page);
+            // The no-streak rule, checked where it is easiest to break: a tab
+            // carrying "0 of 12", or a bar filling toward an unlock, is the
+            // announced reward the spec measures decaying to d=-0.20.
+            const text = await page.locator('.tabs').textContent();
+            assert(!/\d/.test(text), `the tab bar shows a number: "${text}"`);
+            eq(await page.locator('.tabs progress, .tabs meter').count(), 0, 'meters in the tab bar');
+        },
+    },
+
+    {
+        name: 'the tabs are absent while a line is walked',
+        async run(page) {
+            await reset(page);
+            eq(await page.locator('.tabs').isVisible(), true, 'tabs on the list screen');
+            await page.evaluate(() => window.chesslines.showLine('italian-game'));
+            eq(await page.locator('.tabs').isVisible(), false, 'tabs while walking');
+            eq(await page.locator('.footer').isVisible(), false, 'footer while walking');
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'the footer sits below the tab content, with export and import',
+        async run(page) {
+            await reset(page);
+            eq(await page.locator('#footer #export').count(), 1, 'export control');
+            eq(await page.locator('#footer #import').count(), 1, 'import control');
+            // Below the content, not beside it — reaching them means scrolling
+            // past everything Felix cares about (#41).
+            const order = await page.evaluate(() => {
+                const content = document.getElementById('tab-content').getBoundingClientRect();
+                const footer = document.getElementById('footer').getBoundingClientRect();
+                return footer.top >= content.bottom;
+            });
+            assert(order, 'the footer must sit below the tab content');
+        },
+    },
+
+    {
+        name: 'the footer is reachable with nothing adopted',
+        async run(page) {
+            // Import exists to restore a device with nothing on it. Mine is
+            // greyed then, so the footer is the only place it can live — and it
+            // must be there on a wiped store, not only once something exists.
+            await page.evaluate(() => {
+                try {
+                    localStorage.clear();
+                } catch {
+                    // A private window refuses this; the check below still holds.
+                }
+                window.chesslines.showList();
+            });
+            eq(await page.locator('#footer #export').isVisible(), true, 'export with nothing adopted');
+            eq(await page.locator('#footer #import').isVisible(), true, 'import with nothing adopted');
+            eq(await page.locator('#footer input[type="file"]').count(), 1, 'a file input to pick with');
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'the footer controls are quiet, like the language button',
+        async run(page) {
+            await reset(page);
+            // Styled like `.lang`, not like an opening: smaller, muted, and no
+            // border until touched. A parent's tool must not read as a thing to
+            // tap on the way past.
+            const measured = await page.evaluate(() => {
+                const read = (el) => {
+                    const s = getComputedStyle(el);
+                    return { size: parseFloat(s.fontSize), colour: s.color, border: s.borderTopColor };
+                };
+                return {
+                    lang: read(document.getElementById('lang')),
+                    exp: read(document.getElementById('export')),
+                    imp: read(document.getElementById('import')),
+                    line: read(document.querySelector('.line')),
+                };
+            });
+            for (const [name, control] of [['export', measured.exp], ['import', measured.imp]]) {
+                eq(control.size, measured.lang.size, `${name} font size matches the language button`);
+                eq(control.colour, measured.lang.colour, `${name} colour matches the language button`);
+                eq(control.border, measured.lang.border, `${name} border matches the language button`);
+                assert(control.size < measured.line.size, `${name} must be smaller than an opening`);
+            }
+        },
+    },
+
+    {
+        name: 'export names the file for the day',
+        async run(page) {
+            await reset(page);
+            // The real download, through the real control — the store's own test
+            // covers the name, so what this adds is that the button is wired to
+            // it at all.
+            const [download] = await Promise.all([
+                page.waitForEvent('download'),
+                page.click('#export'),
+            ]);
+            assert(
+                /^chesslines-\d{4}-\d{2}-\d{2}\.json$/.test(download.suggestedFilename()),
+                `export filename was "${download.suggestedFilename()}"`,
+            );
+        },
+    },
+
+    {
+        name: 'import merges a chosen file into the repertoire',
+        async run(page) {
+            await reset(page);
+            // A file naming a line this build knows, with one card carrying a
+            // level. After it, the store holds what the file said — asserted on
+            // the repertoire itself rather than on what the screen claims.
+            const doc = await page.evaluate(() => {
+                const { Repertoire } = window.chesslines.store;
+                const r = new Repertoire();
+                r.adopt(window.chesslines.OPENINGS.find((o) => o.id === 'italian-game'));
+                r.grade(r.cards[0].key, { level: 3, best: 3, due: 7 });
+                return JSON.stringify(r.toJSON());
+            });
+
+            await page.setInputFiles('#footer input[type="file"]', {
+                name: 'chesslines-2026-01-01.json',
+                mimeType: 'application/json',
+                buffer: Buffer.from(doc),
+            });
+
+            await page.waitForFunction(() => window.chesslines.repertoire.lines.has('italian-game'));
+            const after = await page.evaluate(() => {
+                const r = window.chesslines.repertoire;
+                const stored = JSON.parse(localStorage.getItem(window.chesslines.store.KEY) ?? 'null');
+                return {
+                    adopted: [...r.lines],
+                    levels: r.cards.map((c) => c.level),
+                    storedLines: stored?.lines ?? null,
+                };
+            });
+            assert(after.adopted.includes('italian-game'), 'the imported line is adopted');
+            assert(after.levels.includes(3), 'the imported level survived the merge');
+            assert(after.storedLines?.includes('italian-game'), 'the import was written to storage');
+            eq(await page.locator('.footer-message').isVisible(), false, 'a good import says nothing');
+        },
+    },
+
+    {
+        name: 'a file that is not a repertoire is refused, and says so',
+        async run(page) {
+            await reset(page);
+            const before = await page.evaluate(() => [...window.chesslines.repertoire.lines]);
+
+            await page.setInputFiles('#footer input[type="file"]', {
+                name: 'holiday-photo.json',
+                mimeType: 'application/json',
+                buffer: Buffer.from('not json at all'),
+            });
+
+            await page.waitForSelector('.footer-message:not([hidden])');
+            const message = (await page.locator('.footer-message').textContent()).trim();
+            assert(message.length > 0, 'a refused import must say so');
+            const after = await page.evaluate(() => [...window.chesslines.repertoire.lines]);
+            eq(after.join(','), before.join(','), 'a refused file must change nothing');
+        },
+    },
+
+    {
+        name: 'a refused import stops saying so once the screen redraws',
+        async run(page) {
+            await reset(page);
+            await page.setInputFiles('#footer input[type="file"]', {
+                name: 'holiday-photo.json',
+                mimeType: 'application/json',
+                buffer: Buffer.from('not json at all'),
+            });
+            await page.waitForSelector('.footer-message:not([hidden])');
+
+            // The message is about the file he just picked, not about the app.
+            // Walking a line and coming back must not still be showing it — and
+            // the screenshot that found this had it stuck under the openings.
+            await page.evaluate(() => window.chesslines.showLine('italian-game'));
+            await reset(page);
+            eq(await page.locator('.footer-message').isVisible(), false, 'the message survived a redraw');
+        },
+    },
 ];
 // ─── Run ─────────────────────────────────────────────────────────────────────
 // Every check runs against both engines. The desktop is not the target, and
@@ -1356,6 +1574,11 @@ async function runChecks(browser, engine) {
         // demand is one that gets skipped exactly when it matters.
         await mkdir(SHOTS, { recursive: true });
         await reset(page);
+        // Park the pointer off every control first. A check that clicked one
+        // leaves the mouse resting on it, and the hover state it draws reaches
+        // the screenshot — which is the visual gate, and should show the app at
+        // rest rather than mid-interaction.
+        await page.mouse.move(0, 0);
 
         const idle = join(SHOTS, 'app.png');
         await page.screenshot({ path: idle, fullPage: true });
@@ -1371,6 +1594,15 @@ async function runChecks(browser, engine) {
         // board pushed off the screen.
         const original = page.viewportSize();
         await page.setViewportSize({ width: 375, height: 667 });
+
+        // The list screen at phone width, which is where the tabs and the footer
+        // live and where they are most at risk: three tabs share 375px and two
+        // of them carry a sentence. The mid-walk shot below cannot show them —
+        // they are absent there by design (#47) — so this is their only look.
+        await reset(page);
+        const list = join(SHOTS, 'app-phone-list.png');
+        await page.screenshot({ path: list, fullPage: true });
+
         // Show the mode mid-walk rather than the bare board: the layout question
         // this app actually has is whether the board and the move text fit on a
         // phone together. Two moves in, so a real sentence is on screen.
@@ -1383,7 +1615,7 @@ async function runChecks(browser, engine) {
         await page.screenshot({ path: phone, fullPage: true });
         await page.setViewportSize(original);
 
-        const shots = [idle, selected, phone].map((f) => f.replace(ROOT, '')).join(', ');
+        const shots = [idle, selected, list, phone].map((f) => f.replace(ROOT, '')).join(', ');
         console.log(`\n  screenshots → ${shots}`);
         console.log('                (look at them — it is not verified until you have)');
     }

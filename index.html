@@ -208,9 +208,17 @@
     <button id="lang" class="lang"></button>
   </div>
 
+  <!-- The list screen's structure, settled in #44: topbar, tabs, tab content,
+       footer. The footer belongs to the screen rather than to any tab, so it is
+       reachable from all three and unchanged when Practise fills in. -->
   <section class="screen" id="list-screen">
-    <h2 id="list-title" class="screen-title"></h2>
-    <div id="list"></div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <!-- The Openings tab is the heading now: a screen title repeating the name
+         of the tab directly above it said the same word twice. -->
+    <div class="tab-content" id="tab-content">
+      <div id="list"></div>
+    </div>
+    <div class="footer" id="footer"></div>
   </section>
 
   <section id="explain" class="screen" hidden></section>
