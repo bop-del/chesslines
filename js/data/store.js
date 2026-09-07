@@ -14,7 +14,7 @@
 // `showSaveFilePicker` is unsupported in Safari, so the File System Access API
 // is out: export is a Blob plus `<a download>`, import an `<input type="file">`.
 
-import { Repertoire } from './repertoire.js';
+import { NOT_A_REPERTOIRE, Repertoire } from './repertoire.js';
 
 // One compact key (ADR 0008), not one per card.
 export const KEY = 'repertoire';
@@ -74,7 +74,7 @@ export function parseFile(text, known) {
     try {
         doc = JSON.parse(text);
     } catch {
-        throw new Error('That file is not a chesslines repertoire.');
+        throw new Error(NOT_A_REPERTOIRE);
     }
     return Repertoire.from(doc, known);
 }

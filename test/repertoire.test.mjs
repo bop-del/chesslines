@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Chess } from '../js/vendor/chess.js';
 import { key } from '../js/data/position.js';
 import { OPENINGS } from '../js/data/openings.js';
-import { Repertoire, cardsFor, TODAY } from '../js/data/repertoire.js';
+import { Repertoire, cardsFor, today } from '../js/data/repertoire.js';
 
 const line = (id) => OPENINGS.find((o) => o.id === id);
 const italian = line('italian-game');
@@ -19,26 +19,26 @@ test('a card exists for every position where he moves, and nowhere else', () => 
     // Half the Italian's nine plies are the opponent's. A card for a position
     // he never answers is a row nothing can read, and it would make any count
     // of progress mean the wrong thing (#35).
-    const cards = cardsFor(italian);
+    const keys = cardsFor(italian);
     const own = italian.moves.filter((_, i) => i % 2 === 0).length;
-    assert.equal(cards.length, own);
+    assert.equal(keys.length, own);
 
     const game = new Chess();
-    const keys = [];
+    const walked = [];
     for (const m of italian.moves) {
-        if (game.turn() === italian.side) keys.push(key(game.fen()));
+        if (game.turn() === italian.side) walked.push(key(game.fen()));
         game.move(m.san);
     }
-    assert.deepEqual(cards.map((c) => c.key), keys);
+    assert.deepEqual(keys, walked);
 });
 
 test('a line taught from Black gets cards for Black’s moves', () => {
     // The Scandinavian's first card is after 1. e4, not before it: White moves
     // first and the app plays that move.
-    const cards = cardsFor(scandi);
-    assert.notEqual(cards[0].key, START);
-    assert.ok(cards[0].key.includes(' b '), `first card is not Black to move: ${cards[0].key}`);
-    assert.equal(cards.length, scandi.moves.filter((_, i) => i % 2 === 1).length);
+    const keys = cardsFor(scandi);
+    assert.notEqual(keys[0], START);
+    assert.ok(keys[0].includes(' b '), `first card is not Black to move: ${keys[0]}`);
+    assert.equal(keys.length, scandi.moves.filter((_, i) => i % 2 === 1).length);
 });
 
 test('adopting a line writes its cards, each carrying the line id', () => {
@@ -157,13 +157,31 @@ test('a shared card stays live when only one of its lines goes', () => {
 test('only live cards that are due are scheduled', () => {
     const r = new Repertoire();
     r.adopt(italian);
-    r.grade(START, { level: 1, best: 1, due: TODAY() + 5 });
-    const due = r.due(TODAY());
+    r.grade(START, { level: 1, best: 1, due: today() + 5 });
+    const due = r.due(today());
     assert.equal(due.some((c) => c.key === START), false, 'a card due in five days was scheduled');
     assert.ok(due.length > 0, 'nothing was scheduled at all');
 
     r.remove('italian-game');
-    assert.deepEqual(r.due(TODAY()), [], 'dormant cards were scheduled');
+    assert.deepEqual(r.due(today()), [], 'dormant cards were scheduled');
+});
+
+// ─── The day number ──────────────────────────────────────────────────────────
+
+test('the day number counts calendar days from a fixed epoch', () => {
+    // ADR 0008 asks for this test by name: the encoding needs a fixed epoch,
+    // and a bug here shifts every due date at once.
+    assert.equal(today(new Date(1970, 0, 1)), 0, 'day 0 is not the epoch');
+    assert.equal(today(new Date(2026, 8, 9)) - today(new Date(2026, 8, 8)), 1);
+});
+
+test('one calendar day is one, across DST and the year end', () => {
+    // The local date is read and converted through Date.UTC, so a 23-hour day
+    // is still a day. Reading the local timestamp instead would make the
+    // spring-forward day zero, and every due date after it wrong by one.
+    assert.equal(today(new Date(2026, 2, 30)) - today(new Date(2026, 2, 29)), 1, 'DST');
+    assert.equal(today(new Date(2027, 0, 1)) - today(new Date(2026, 11, 31)), 1, 'year end');
+    assert.equal(today(new Date(2026, 8, 8, 23, 59)), today(new Date(2026, 8, 8, 0, 1)), 'one day');
 });
 
 // ─── Import ──────────────────────────────────────────────────────────────────
@@ -257,6 +275,45 @@ test('import wakes a card whose line the file brings back', () => {
     assert.equal(r.card(START).level, 3, 'the local progress was overwritten');
 });
 
+test('the earlier due day wins, so nothing quietly stops being scheduled', () => {
+    // #40 rules on the two levels and not on this one. The earlier day is the
+    // direction that cannot lose anything: a card coming up sooner costs one
+    // extra answer, one pushed further out disappears from practice silently.
+    const r = new Repertoire();
+    r.adopt(italian);
+    r.grade(START, { level: 2, best: 2, due: 10 });
+
+    const file = new Repertoire();
+    file.adopt(italian);
+    file.grade(START, { level: 2, best: 2, due: 40 });
+
+    r.merge(file.toJSON(), OPENINGS);
+    assert.equal(r.card(START).due, 10, 'the later day pushed the card out of practice');
+});
+
+test('a card new to the store keeps the due day the file gave it', () => {
+    const file = new Repertoire();
+    file.adopt(scandi);
+    file.grade(file.cards[0].key, { level: 1, best: 1, due: 40 });
+
+    const r = new Repertoire();
+    r.merge(file.toJSON(), OPENINGS);
+    assert.equal(r.card(file.cards[0].key).due, 40, 'a new card was pulled to day 0');
+});
+
+test('a miss lowers the level and never the best level', () => {
+    // The meter reads the best level, so it can only rise (#39). This is the
+    // shape Drill will call: a level going down, a best level standing.
+    const r = new Repertoire();
+    r.adopt(italian);
+    r.grade(START, { level: 5, best: 5, due: 20 });
+    r.grade(START, { level: 2, due: 21 });
+
+    const card = r.card(START);
+    assert.equal(card.level, 2, 'the current level should fall');
+    assert.equal(card.best, 5, 'a miss took away the best level');
+});
+
 test('a malformed file is refused rather than half-applied', () => {
     const r = new Repertoire();
     r.adopt(italian);
@@ -265,6 +322,38 @@ test('a malformed file is refused rather than half-applied', () => {
         assert.throws(() => r.merge(bad, OPENINGS), /repertoire/i, `accepted ${JSON.stringify(bad)}`);
     }
     assert.deepEqual(r.toJSON(), before, 'a refused import changed the repertoire');
+});
+
+test('a file that throws partway through leaves the repertoire untouched', () => {
+    // The guarantee the name above claims, tested against the case that can
+    // actually reach it: a document that passes the shape check and then blows
+    // up mid-array. A half-applied merge leaves a repertoire that is neither
+    // what it was nor what the file says.
+    const r = new Repertoire();
+    r.adopt(italian);
+    const before = r.toJSON();
+
+    const doc = {
+        v: 1,
+        lines: ['scandinavian-defense'],
+        cards: [
+            { key: 'k7/8/8/8/8/8/8/K7 w - -', level: 9, best: 9, due: 1, lines: [] },
+            // A getter that throws is the cleanest way to fail mid-merge; a
+            // real file reaches this through anything JSON can hold.
+            { key: 'K7/8/8/8/8/8/8/k7 b - -', get level() { throw new Error('boom'); } },
+        ],
+    };
+    assert.throws(() => r.merge(doc, OPENINGS), /boom/);
+
+    assert.deepEqual(r.toJSON(), before, 'the merge was half-applied');
+    assert.equal(r.card('k7/8/8/8/8/8/8/K7 w - -'), null, 'a card from the bad file was written');
+    assert.equal(r.lines.has('scandinavian-defense'), false, 'a line from the bad file was adopted');
+});
+
+test('a version this build does not know is refused rather than half-read', () => {
+    const r = new Repertoire();
+    assert.throws(() => r.merge({ v: 2, lines: [], cards: [] }, OPENINGS), /repertoire/i);
+    assert.equal(r.merge({ v: 1, lines: [], cards: [] }, OPENINGS).cards.length, 0);
 });
 
 // ─── The stored form ─────────────────────────────────────────────────────────
@@ -299,7 +388,9 @@ test('the stored form carries no record of when he last exported', () => {
 });
 
 test('the stored form stays small', () => {
-    // ~90 bytes a card was the measured figure the storage decision rests on.
+    // 136 bytes a card, measured, and the figure ADR 0008 now carries. The
+    // ceiling is loose on purpose: it exists to catch a card growing a field
+    // nobody meant to add, not to police a byte.
     const r = new Repertoire();
     for (const o of OPENINGS) r.adopt(o);
     const bytes = JSON.stringify(r.toJSON()).length;

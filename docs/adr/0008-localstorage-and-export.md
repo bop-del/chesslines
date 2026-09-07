@@ -12,7 +12,7 @@ The repertoire and its progress are **Felix's data**. There is no server
 ## Decision
 
 **localStorage, one compact key**, with the due date as a day number rather than
-an ISO string. Measured at about 2 KB for 150 cards.
+an ISO string. Measured at about 20 KB for 150 cards.
 
 **Export and import from day one**, as a JSON file: a Blob plus `<a download>`
 to save, `<input type="file">` to restore.
@@ -28,8 +28,19 @@ site** — localStorage and IndexedDB alike. Practising twice a week never trips
 it. A three-week holiday could, and it would erase a child's practice history.
 
 **"IndexedDB is safer on iOS" is folklore with no primary source.** The 7-day
-policy covers both. IndexedDB's async complexity buys nothing here, and 2 KB
+policy covers both. IndexedDB's async complexity buys nothing here, and 20 KB
 does not need a database.
+
+> **Corrected once the store existed to measure** (issues #35, #46). This ADR
+> first said "about 2 KB for 150 cards", which is 14 bytes a card — impossible
+> against a position key of 54 characters, so the figure cannot have been
+> measured against the key the store now uses. #35 re-estimated ~90 bytes a
+> card; the built store measures **136**, since a card also carries two levels,
+> a due day and its line ids. That is **4.6 KB for the 34 cards twelve lines
+> produce** and ~20 KB at this ADR's hypothetical 150. Against localStorage's
+> ~5 MB the conclusion stands unchanged — the number is corrected here, and
+> `test/repertoire.test.mjs` holds it to a ceiling so it cannot drift
+> unnoticed.
 
 **The only documented defence is Add to Home Screen**, which is explicitly
 exempt from the cap. That makes a PWA a *durability* feature rather than a
