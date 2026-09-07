@@ -55,3 +55,31 @@ test('pick returns the field for the language', () => {
     assert.equal(pick(named, 'en'), 'Italian Game');
     assert.equal(pick(undefined, 'de'), '');
 });
+
+test('every tab and footer string exists in both languages', () => {
+    // The tabs and the footer are chrome: a missing key would render as the key
+    // itself on the list screen, which is the one screen every visit starts on.
+    const keys = [
+        'tabs.openings', 'tabs.mine', 'tabs.practise',
+        'tabs.mineWhen', 'tabs.practiseWhen',
+        'footer.export', 'footer.import', 'footer.importFailed',
+    ];
+    for (const key of keys) {
+        for (const lang of ['en', 'de']) {
+            assert.notEqual(t(key, lang), key, `${key} missing in ${lang}`);
+        }
+        assert.notEqual(t(key, 'en'), t(key, 'de'), `${key} is untranslated`);
+    }
+});
+
+test('a greyed tab names an action, never a clock', () => {
+    // #47: "a greyed tab states a path he can act on, never a clock." Practise
+    // is the one that could go wrong — its real condition is due-ness, and
+    // saying so would be a locked door with no key.
+    for (const lang of ['en', 'de']) {
+        const practise = t('tabs.practiseWhen', lang).toLowerCase();
+        for (const clock of ['due', 'fällig', 'tomorrow', 'morgen', 'wait', 'warte']) {
+            assert.ok(!practise.includes(clock), `practise condition mentions "${clock}" in ${lang}`);
+        }
+    }
+});

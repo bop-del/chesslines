@@ -11,6 +11,8 @@ import { Walk } from './train/walk.js';
 import * as repertoires from './data/repertoire.js';
 import * as store from './data/store.js';
 import { List } from './ui/list.js';
+import { Tabs } from './ui/tabs.js';
+import { Footer } from './ui/footer.js';
 import { Explain } from './ui/explain.js';
 import { LANGUAGES, san, t } from './i18n/i18n.js';
 
@@ -52,6 +54,8 @@ const repertoire = store.load(OPENINGS);
 
 const listEl = document.getElementById('list-screen');
 const listBody = document.getElementById('list');
+const tabsEl = document.getElementById('tabs');
+const footerEl = document.getElementById('footer');
 const explainEl = document.getElementById('explain');
 const toggle = document.getElementById('lang');
 const boardHome = document.getElementById('board-home');
@@ -99,6 +103,30 @@ const list = new List(listBody, {
     onPick: (id) => showLine(OPENINGS.find((o) => o.id === id)),
 });
 
+// Openings is the only live tab in this build, so picking one only ever lands
+// back where it started. The callback exists so Mine and Practise have somewhere
+// to arrive when they do.
+const tabs = new Tabs(tabsEl, { onPick: () => showList() });
+
+const footer = new Footer(footerEl, {
+    onExport: () => store.download(repertoire),
+    // Merge into the repertoire the app is already holding, then save and
+    // redraw. `merge` refuses a file that is not a repertoire — the footer
+    // catches that — and it builds everything before applying any of it, so a
+    // rejected file leaves the repertoire exactly as it was. Merging in place
+    // rather than replacing means there is no second copy to keep in step with
+    // the one Adopt (#48) will write to.
+    onImport(text) {
+        // `parseFile` is the edge's own reader: it turns both ways a chosen file
+        // can be wrong — unparseable, or parseable but not a repertoire — into
+        // the one error, which is the only distinction a nine-year-old can act
+        // on. Its result is a repertoire, so merging takes its document.
+        repertoire.merge(store.parseFile(text, OPENINGS).toJSON(), OPENINGS);
+        store.save(repertoire);
+        if (!listEl.hidden) showList();
+    },
+});
+
 function showList() {
     explain.stop();
     explainEl.hidden = true;
@@ -108,7 +136,11 @@ function showList() {
     game.reset();
     board.flip('w');
     board.render(game);
-    document.getElementById('list-title').textContent = t('list.title', lang);
+    tabs.render(lang);
+    // Clear before rendering: a refused import's message is about the file he
+    // just picked, and must not survive walking a line and coming back.
+    footer.clear();
+    footer.render(lang);
     list.render(OPENINGS, lang);
 }
 
@@ -145,6 +177,8 @@ window.chesslines = {
         return lang;
     },
     explain,
+    tabs,
+    footer,
     showLine: (id) => showLine(OPENINGS.find((o) => o.id === id)),
     showList,
 };
