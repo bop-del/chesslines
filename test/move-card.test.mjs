@@ -89,6 +89,19 @@ test('it says so and changes nothing when the card is already Done', () => {
     assert.match(out, /already/i);
 });
 
+test('it asks for the whole board, not the first page of it', () => {
+    // `gh project item-list` returns 30 items unless told otherwise, and this
+    // board passed 30 during #46: the card was there, in the right column, and
+    // invisible to the lookup — which then reported it as having no card at
+    // all. The two failures are indistinguishable from the caller, and the
+    // wrong one sends you to `item-add` to duplicate a card that exists.
+    const { calls } = run(['22']);
+    const list = calls.split('\n').find((line) => line.startsWith('project item-list'));
+    assert.match(list, /--limit \d+/, 'the board was read one default page at a time');
+    const [, limit] = list.match(/--limit (\d+)/);
+    assert.ok(Number(limit) >= 100, `--limit ${limit} is close enough to grow into again`);
+});
+
 test('an issue with no card fails loudly rather than moving nothing quietly', () => {
     // The failure that matters: a card that was never added to the board looks
     // exactly like a successful no-op unless the script says otherwise.

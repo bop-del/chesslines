@@ -57,7 +57,14 @@ function main(argv) {
         die(`unknown status '${target}' — one of: ${Object.keys(STATUS).join(', ')}`);
     }
 
-    const board = JSON.parse(gh('project', 'item-list', PROJECT, '--owner', OWNER, '--format', 'json'));
+    // `--limit` because the default page is 30 and the board passed that: #46
+    // and #47 were on it, in the right column, and invisible to this lookup —
+    // which then reported them as having no card at all. The two failures look
+    // identical from here, and the wrong one sends you to `item-add` to create
+    // a duplicate of a card that already exists.
+    const board = JSON.parse(
+        gh('project', 'item-list', PROJECT, '--owner', OWNER, '--limit', '500', '--format', 'json'),
+    );
     const card = board.items.find((item) => String(item.content?.number) === issue);
 
     // A missing card is the failure worth being loud about: it looks exactly
