@@ -117,3 +117,9 @@ A card no adopted line points at any more. Drill never schedules it, and it
 keeps its level and due day — removing a line must not cost progress. It wakes
 if the line is adopted again.
 _Avoid_: orphaned, deleted, archived, stale
+
+**Best level**:
+The highest ladder level a card has ever reached, kept beside its current one. A
+miss lowers what Drill schedules; it never lowers this. What the meter reads, so
+the meter can only rise.
+_Avoid_: high score, record, peak (all sound like a game), max level
