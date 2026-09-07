@@ -45,9 +45,19 @@ Four gates. Report what you checked; stop on the first failure and say which.
 `- #30 — reason` lines. Check each blocker with `gh issue view <blocker>
 --json state`. Any blocker still open means stop.
 
-> GitHub's native dependency API is **not** populated on this repo — every
-> ticket returns `blocked_by: 0` from `issue_dependencies_summary` even when
-> its body names a blocker. Parse the body; do not trust the API.
+> **Check both, and treat either as blocking.** Native dependency edges *are*
+> used on this repo now — `gh api repos/bop-del/chesslines/issues/<n> --jq
+> .issue_dependencies_summary.blocked_by` counts the **open** blockers, so a
+> non-zero answer is a live gate and needs no further lookup.
+>
+> A zero is not an all-clear on its own. Edges are wired by whoever files the
+> ticket, and the older issues have none — so `blocked_by: 0` means either
+> "nothing blocks it" or "nobody wired the edge", and only the body
+> distinguishes them. Parse the `## Blocked by` section either way.
+>
+> This note used to say the API was never populated and to ignore it. That was
+> true when every edge lived in prose, and stopped being true once
+> `/to-tickets` began wiring them (#46–#52).
 
 **Is it claimed?** `gh project item-list 3 --owner bop-del --format json`. If
 the card is already `In progress`, stop — unless it is a stale claim (clean
