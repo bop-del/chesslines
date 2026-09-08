@@ -87,6 +87,22 @@ export class Repertoire {
         return this.#cards.get(k) ?? null;
     }
 
+    // Is this line one he has taken? The question the Openings mark and the
+    // end-of-line control both ask (#48), answered here beside `card` and
+    // `isDormant` rather than by reaching through `lines` into the Set — the
+    // set of adopted ids is this class's business, not its callers'.
+    isAdopted(id) {
+        return this.#lines.has(id);
+    }
+
+    // Has he taken anything at all? What opens the Mine tab, and the only
+    // number this class will ever give the UI — a count of what is adopted is
+    // exactly what the no-streak rule keeps off the screen, so this answers
+    // yes or no and nothing more.
+    get any() {
+        return this.#lines.size > 0;
+    }
+
     // Adopt a line: add its id, and add it to the card of every position where
     // he moves. A card that already exists keeps its level, its best level and
     // its due day — a second line reaching a position is not a reason to
@@ -117,7 +133,7 @@ export class Repertoire {
     // adopted; a card the build no longer knows a line for is dormant by the
     // same rule, with no special case.
     isDormant(c) {
-        return !c.lines.some((id) => this.#lines.has(id));
+        return !c.lines.some((id) => this.isAdopted(id));
     }
 
     // What Drill would schedule today: live cards that are due. Dormancy is one

@@ -336,21 +336,25 @@
  * mechanism the no-streak rule rules out. It is unhidden the way Again is and
  * nothing here moves it. */
 .explain-controls .adopt {
-    /* Four controls now share the row, and on a 375px screen the labels are
-     * long — "Add to my openings" and "Zu meinen Eröffnungen" both wrap. Two
-     * lines here is right: the alternative is truncating the one control that
-     * has to say what it does. */
+    /* Its own row on a phone. Four controls now share this space, and this is
+     * the one whose label cannot be shortened or clipped — it has to say what
+     * tapping it does. Squeezed in beside the other three at 375px it would
+     * take the room they need instead. */
     flex: 1 1 100%;
     order: 1;
     font-size: 0.9rem;
 }
 
-/* Once it is a statement it is not a target: no pointer, no hover, and the
- * dashed border the app already uses for "shown, but not a thing to tap"
- * (a greyed tab, an opening without its texts). It does not fade to 0.45 the
- * way those do — this one is a fact about his repertoire, and a fact he can
- * barely read is a worse answer than a quiet one. */
+/* Once it is a statement it is not a target: no pointer, and the dashed border
+ * the app already uses for "shown, but not a thing to tap" (a greyed tab, an
+ * opening without its texts).
+ *
+ * It keeps more of itself than those do. `button:disabled` in css/base.css
+ * fades to 0.45, which is right for a control he cannot use yet and wrong
+ * here: this is a fact about his repertoire rather than a door that is shut,
+ * and a fact he can barely read is a worse answer than a quiet one. */
 .explain-controls .adopt:disabled {
+    opacity: 0.8;
     cursor: default;
     border-style: dashed;
     color: var(--muted);

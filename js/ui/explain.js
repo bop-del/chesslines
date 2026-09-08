@@ -232,10 +232,10 @@ export class Explain {
     // happens: no screen change, no message, no celebration — `#labels` redraws
     // the control as the statement, and that is all the feedback there is.
     //
-    // It is also where the Mine tab quietly becomes live. The tabs are not on
-    // screen at this moment (#28), so it is usable the next time he sees the
-    // list, with nothing marking the transition: announced rewards undermine,
-    // unexpected ones do not.
+    // Nothing here touches the tabs, and that is what makes the first adopt
+    // unannounced: Mine goes live because the list screen reads the repertoire
+    // when it is next drawn (js/main.js), and the tabs are not on screen at
+    // this moment (#28). Announced rewards undermine; unexpected ones do not.
     #adopt() {
         if (!this.#walk?.done) return;
         this.#onAdopt?.(this.#walk.line);

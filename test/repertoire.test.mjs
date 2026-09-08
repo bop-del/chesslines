@@ -101,6 +101,34 @@ test('adopting does not disturb progress already made', () => {
     assert.equal(card.due, 12);
 });
 
+test('the repertoire answers whether a line is one he has taken', () => {
+    // What the Openings mark and the end-of-line control both ask (#48). It is
+    // a question about one line, not a count: `any` says yes or no, and there
+    // is deliberately nothing here that returns how many.
+    const r = new Repertoire();
+    assert.equal(r.isAdopted('italian-game'), false);
+    assert.equal(r.any, false, 'an empty repertoire claims to hold something');
+
+    r.adopt(italian);
+    assert.equal(r.isAdopted('italian-game'), true);
+    assert.equal(r.isAdopted('ruy-lopez'), false, 'adopting one adopted another');
+    assert.equal(r.any, true);
+});
+
+test('un-adopting the last line leaves nothing adopted, and the cards behind', () => {
+    // Mine goes live on `any` and would go grey again on it. The cards stay —
+    // dormant, and untouched — because tidying up must never cost him practice
+    // he has done (#38).
+    const r = new Repertoire();
+    r.adopt(italian);
+    const cards = r.cards.length;
+
+    r.remove('italian-game');
+    assert.equal(r.isAdopted('italian-game'), false);
+    assert.equal(r.any, false);
+    assert.equal(r.cards.length, cards, 'un-adopting deleted cards');
+});
+
 test('removing a line drops its id and keeps every card', () => {
     const r = new Repertoire();
     r.adopt(italian);

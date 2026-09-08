@@ -109,7 +109,7 @@ const explain = new Explain(explainEl, {
         repertoire.adopt(line);
         store.save(repertoire);
     },
-    isAdopted: (line) => repertoire.lines.has(line.id),
+    isAdopted: (line) => repertoire.isAdopted(line.id),
 });
 
 const list = new List(listBody, {

@@ -32,7 +32,7 @@ const TABS = [
         id: 'mine',
         label: 'tabs.mine',
         when: 'tabs.mineWhen',
-        live: (repertoire) => repertoire.lines.size > 0,
+        live: (repertoire) => Boolean(repertoire?.any),
     },
     { id: 'practise', label: 'tabs.practise', when: 'tabs.practiseWhen' },
 ];

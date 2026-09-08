@@ -78,7 +78,7 @@ export class List {
         // and it says the same thing whether one line is adopted or all twelve.
         // The word carries it rather than a tick, so a screen reader reads
         // something and the row does not depend on a glyph rendering.
-        if (repertoire?.lines.has(line.id)) {
+        if (repertoire?.isAdopted(line.id)) {
             const mark = document.createElement('span');
             mark.className = 'line-mark';
             mark.textContent = t('list.mine', lang);
