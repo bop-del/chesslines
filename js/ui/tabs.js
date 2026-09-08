@@ -55,9 +55,16 @@ export class Tabs {
         button.dataset.tab = tab.id;
         button.disabled = !live;
         // The tab bar is a set of destinations, so it says so to a screen
-        // reader rather than reading as three loose buttons.
-        button.role = 'tab';
-        button.ariaSelected = String(live && tab.id === this.#current);
+        // reader rather than reading as three loose buttons. `setAttribute`
+        // rather than the reflected properties, matching js/board/Board.js.
+        //
+        // A tab has to name the panel it opens, or a screen reader announces
+        // "tab 1 of 3" and has nothing to move to — a half-built pattern is
+        // worse than none. There is one panel, because switching tabs replaces
+        // its contents rather than revealing a second region.
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-selected', String(live && tab.id === this.#current));
+        button.setAttribute('aria-controls', 'tab-content');
 
         const label = document.createElement('span');
         label.className = 'tab-label';
