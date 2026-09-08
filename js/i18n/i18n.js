@@ -50,8 +50,14 @@ const UI = {
         'tabs.openings': 'Openings',
         'tabs.mine': 'Mine',
         'tabs.practise': 'Practise',
+        // Two conditions, not one repeated. #47 forbids naming a clock, and
+        // Practise's literal condition is that a card is due — but the first
+        // draft of this said "once you add an opening" for both, which is
+        // simply false for Practise: adopting opens Mine, and he could adopt,
+        // come back, and find Practise still grey. Each names the act that
+        // actually starts its own route.
         'tabs.mineWhen': 'once you add an opening',
-        'tabs.practiseWhen': 'once you add an opening',
+        'tabs.practiseWhen': "once you've practised an opening here",
         'footer.export': 'Save a copy',
         'footer.import': 'Load a copy',
         'footer.importFailed': 'That file is not a chesslines copy.',
@@ -77,7 +83,7 @@ const UI = {
         'tabs.mine': 'Meine',
         'tabs.practise': 'Üben',
         'tabs.mineWhen': 'sobald du eine Eröffnung hinzufügst',
-        'tabs.practiseWhen': 'sobald du eine Eröffnung hinzufügst',
+        'tabs.practiseWhen': 'sobald du eine Eröffnung hier geübt hast',
         'footer.export': 'Kopie sichern',
         'footer.import': 'Kopie laden',
         'footer.importFailed': 'Diese Datei ist keine chesslines-Kopie.',

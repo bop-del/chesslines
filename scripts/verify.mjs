@@ -1307,6 +1307,49 @@ const checks = [
     },
 
     {
+        name: 'the tab bar is a tab bar to a screen reader, and a target for a thumb',
+        async run(page) {
+            await reset(page);
+            eq(await page.getAttribute('#tabs', 'role'), 'tablist', 'the bar is a tablist');
+            eq(await page.getAttribute('#tab-content', 'role'), 'tabpanel', 'the content is a tabpanel');
+            for (const id of ['openings', 'mine', 'practise']) {
+                const tab = page.locator(`.tab[data-tab="${id}"]`);
+                eq(await tab.getAttribute('role'), 'tab', `${id} is a tab`);
+                // A tab that names no panel leaves a screen reader announcing
+                // "tab 1 of 3" with nowhere to go — a half-built pattern.
+                eq(await tab.getAttribute('aria-controls'), 'tab-content', `${id} names its panel`);
+            }
+            eq(
+                await page.getAttribute('.tab[data-tab="openings"]', 'aria-selected'),
+                'true',
+                'Openings is the selected tab',
+            );
+
+            // The live tab is a real target, and a nine-year-old's aim is worse
+            // than an adult's. Checked at phone width, where it is tightest.
+            const original = page.viewportSize();
+            await page.setViewportSize({ width: 375, height: 667 });
+            const box = await page.locator('.tab[data-tab="openings"]').boundingBox();
+            assert(box.height >= 44, `the live tab is ${box.height.toFixed(1)}px tall on a phone`);
+            await page.setViewportSize(original);
+        },
+    },
+
+    {
+        name: 'the two greyed tabs state two conditions, not one repeated',
+        async run(page) {
+            await reset(page);
+            const mine = (await page.locator('.tab[data-tab="mine"] .tab-when').textContent()).trim();
+            const practise = (await page.locator('.tab[data-tab="practise"] .tab-when').textContent()).trim();
+            // Adopting opens Mine; it does not open Practise, which also needs a
+            // card to come due. Two tabs saying the same words would tell him
+            // adopting opens both, and he would adopt, come back, and find
+            // Practise still grey.
+            assert(mine !== practise, `both greyed tabs say "${mine}"`);
+        },
+    },
+
+    {
         name: 'nothing in the tab bar counts or accumulates',
         async run(page) {
             await reset(page);
@@ -1365,6 +1408,43 @@ const checks = [
             eq(await page.locator('#footer #export').isVisible(), true, 'export with nothing adopted');
             eq(await page.locator('#footer #import').isVisible(), true, 'import with nothing adopted');
             eq(await page.locator('#footer input[type="file"]').count(), 1, 'a file input to pick with');
+
+            // Reachable is not the claim — the claim is that it works. This is
+            // the WebKit 7-day case (ADR 0008) as he would actually meet it:
+            // everything gone, and a file from before it went.
+            const backup = await page.evaluate(() => {
+                const { Repertoire } = window.chesslines.store;
+                const r = new Repertoire();
+                r.adopt(window.chesslines.OPENINGS.find((o) => o.id === 'italian-game'));
+                r.grade(r.cards[0].key, { level: 4, best: 4, due: 2 });
+                return JSON.stringify(r.toJSON());
+            });
+            await page.evaluate(() => {
+                try {
+                    localStorage.clear();
+                } catch {
+                    // A private window refuses this; the import below still runs.
+                }
+                window.chesslines.repertoire.remove('italian-game');
+            });
+
+            await page.setInputFiles('#footer input[type="file"]', {
+                name: 'chesslines-2026-01-01.json',
+                mimeType: 'application/json',
+                buffer: Buffer.from(backup),
+            });
+            await page.waitForFunction(() => window.chesslines.repertoire.lines.has('italian-game'));
+
+            const restored = await page.evaluate(() => {
+                const stored = JSON.parse(localStorage.getItem(window.chesslines.store.KEY) ?? 'null');
+                return {
+                    levels: window.chesslines.repertoire.cards.map((c) => c.level),
+                    storedLines: stored?.lines ?? null,
+                };
+            });
+            assert(restored.levels.includes(4), 'the practice in the file came back');
+            assert(restored.storedLines?.includes('italian-game'), 'the restore was written to storage');
+
             await reset(page);
         },
     },
@@ -1385,14 +1465,25 @@ const checks = [
                     lang: read(document.getElementById('lang')),
                     exp: read(document.getElementById('export')),
                     imp: read(document.getElementById('import')),
-                    line: read(document.querySelector('.line')),
+                    // `.line-idea`, not `.line`: the row declares no font-size
+                    // and inherits the body's 1rem, so comparing against it
+                    // measures something that is not the text on screen.
+                    idea: read(document.querySelector('.line-idea')),
+                    name: read(document.querySelector('.line-name')),
                 };
             });
             for (const [name, control] of [['export', measured.exp], ['import', measured.imp]]) {
                 eq(control.size, measured.lang.size, `${name} font size matches the language button`);
                 eq(control.colour, measured.lang.colour, `${name} colour matches the language button`);
                 eq(control.border, measured.lang.border, `${name} border matches the language button`);
-                assert(control.size < measured.line.size, `${name} must be smaller than an opening`);
+                // Both are transparent until touched, so equal border colours
+                // prove little on their own — that they are transparent at rest
+                // is the claim, and it is the one worth making explicit.
+                eq(control.border, 'rgba(0, 0, 0, 0)', `${name} has no border at rest`);
+                assert(
+                    control.size < measured.idea.size && control.size < measured.name.size,
+                    `${name} at ${control.size}px must be smaller than an opening's text`,
+                );
             }
         },
     },
@@ -1419,15 +1510,26 @@ const checks = [
         name: 'import merges a chosen file into the repertoire',
         async run(page) {
             await reset(page);
-            // A file naming a line this build knows, with one card carrying a
-            // level. After it, the store holds what the file said — asserted on
-            // the repertoire itself rather than on what the screen claims.
-            const doc = await page.evaluate(() => {
+            // Something already in the store, and a file naming a *different*
+            // line. Importing into an empty repertoire cannot tell a merge from
+            // a replace — both leave exactly the file's contents — so the store
+            // has to be holding something the file does not mention.
+            const { doc, level } = await page.evaluate(() => {
                 const { Repertoire } = window.chesslines.store;
+                const held = window.chesslines.repertoire;
+                held.adopt(window.chesslines.OPENINGS.find((o) => o.id === 'ruy-lopez'));
+
                 const r = new Repertoire();
                 r.adopt(window.chesslines.OPENINGS.find((o) => o.id === 'italian-game'));
-                r.grade(r.cards[0].key, { level: 3, best: 3, due: 7 });
-                return JSON.stringify(r.toJSON());
+
+                // One above whatever is already on that card. The checks share
+                // one page and `merge` takes the higher level by design (#40),
+                // so a fixed number is a check that passes or fails according to
+                // what ran before it — which is how this one first went red.
+                const key = r.cards[0].key;
+                const beat = (held.card(key)?.level ?? 0) + 1;
+                r.grade(key, { level: beat, best: beat, due: 7 });
+                return { doc: JSON.stringify(r.toJSON()), level: beat };
             });
 
             await page.setInputFiles('#footer input[type="file"]', {
@@ -1447,8 +1549,12 @@ const checks = [
                 };
             });
             assert(after.adopted.includes('italian-game'), 'the imported line is adopted');
-            assert(after.levels.includes(3), 'the imported level survived the merge');
+            // The whole point: what was already there survived. A replace would
+            // leave only the file's line, and this is the assertion that says so.
+            assert(after.adopted.includes('ruy-lopez'), 'import replaced rather than merged');
+            assert(after.levels.includes(level), `level ${level} did not survive the merge`);
             assert(after.storedLines?.includes('italian-game'), 'the import was written to storage');
+            assert(after.storedLines?.includes('ruy-lopez'), 'the merge was written to storage');
             eq(await page.locator('.footer-message').isVisible(), false, 'a good import says nothing');
         },
     },

@@ -72,6 +72,20 @@ test('every tab and footer string exists in both languages', () => {
     }
 });
 
+test('the two greyed tabs state two conditions, not one repeated', () => {
+    // The first draft gave both "once you add an opening", which is false for
+    // Practise: adopting opens Mine, and he could adopt, come back, and find
+    // Practise still grey. Two tabs side by side saying the same words are one
+    // condition duplicated rather than two routes.
+    for (const lang of ['en', 'de']) {
+        assert.notEqual(
+            t('tabs.mineWhen', lang),
+            t('tabs.practiseWhen', lang),
+            `both greyed tabs state the same condition in ${lang}`,
+        );
+    }
+});
+
 test('a greyed tab names an action, never a clock', () => {
     // #47: "a greyed tab states a path he can act on, never a clock." Practise
     // is the one that could go wrong — its real condition is due-ness, and

@@ -25,6 +25,7 @@ export class Footer {
     #export;
     #import;
     #input;
+    #importLabel;
     #message;
     #lang = 'en';
 
@@ -53,8 +54,14 @@ export class Footer {
         this.#input.type = 'file';
         this.#input.accept = 'application/json,.json';
         this.#input.className = 'footer-file';
-        this.#input.addEventListener('change', () => this.#chose());
-        this.#import.append(this.#input);
+        this.#input.addEventListener('change', () => this.#fileChosen());
+
+        // The label's text in its own span, beside the input rather than as a
+        // bare text node next to it — the same shape as `.tab-label`. It is what
+        // lets `render` set the text without having to work around the input
+        // being a child of the element being written to.
+        this.#importLabel = document.createElement('span');
+        this.#import.append(this.#input, this.#importLabel);
 
         // Only ever holds a failure. A successful import says nothing — the
         // openings simply are what the file says, and announcing it would be
@@ -63,12 +70,12 @@ export class Footer {
         this.#message.className = 'footer-message';
         this.#message.hidden = true;
         // Politely, not assertively: a failure is not an interruption.
-        this.#message.role = 'status';
+        this.#message.setAttribute('role', 'status');
 
         this.#root.replaceChildren(this.#export, this.#import, this.#message);
     }
 
-    async #chose() {
+    async #fileChosen() {
         const file = this.#input.files?.[0];
         // Resetting first, so picking the same file twice fires `change` twice.
         // Without this, a failed import cannot be retried with the same file.
@@ -99,12 +106,7 @@ export class Footer {
     render(lang) {
         this.#lang = lang;
         this.#export.textContent = t('footer.export', lang);
-        // The input is a child of the label, so setting textContent would
-        // remove it. The label's own text is a node beside it.
-        const text = t('footer.import', lang);
-        const existing = [...this.#import.childNodes].find((n) => n.nodeType === Node.TEXT_NODE);
-        if (existing) existing.nodeValue = text;
-        else this.#import.append(document.createTextNode(text));
+        this.#importLabel.textContent = t('footer.import', lang);
         // A message on screen is retranslated rather than left in the language
         // it was written in: switching language redraws everything else, and a
         // sentence that did not change would be the one thing that lied.
