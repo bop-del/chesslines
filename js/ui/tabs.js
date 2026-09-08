@@ -19,12 +19,21 @@
 
 import { t } from '../i18n/i18n.js';
 
-// Openings is the only live tab this build has. Mine and Practise are greyed
-// until Adopt (#48) and Drill exist; when they arrive, they gain a `live`
-// predicate here rather than a special case at the call site.
+// A tab is live when its `live` predicate says so, and a tab with no predicate
+// is always live — Openings, the way in. The rule lives here rather than at the
+// call site, so a tab's condition and the words stating it sit together.
+//
+// Mine opens on the first adopt and stays open (#48). Practise is greyed until
+// Drill exists; it also needs a card to come due, which is why its condition is
+// not Mine's — adopting opens one and not the other (#47).
 const TABS = [
     { id: 'openings', label: 'tabs.openings' },
-    { id: 'mine', label: 'tabs.mine', when: 'tabs.mineWhen' },
+    {
+        id: 'mine',
+        label: 'tabs.mine',
+        when: 'tabs.mineWhen',
+        live: (repertoire) => repertoire.lines.size > 0,
+    },
     { id: 'practise', label: 'tabs.practise', when: 'tabs.practiseWhen' },
 ];
 
@@ -42,13 +51,18 @@ export class Tabs {
         return this.#current;
     }
 
-    render(lang) {
-        this.#root.replaceChildren(...TABS.map((tab) => this.#tab(tab, lang)));
+    // `repertoire` is what the predicates read. It is passed in on every draw
+    // rather than held, so the bar cannot go stale against a repertoire that
+    // changed while a line was being walked — which is exactly when the first
+    // adopt happens.
+    render(lang, repertoire) {
+        this.#root.replaceChildren(...TABS.map((tab) => this.#tab(tab, lang, repertoire)));
     }
 
-    #tab(tab, lang) {
-        // A tab with no condition is a live one. Today that is Openings alone.
-        const live = tab.when === undefined;
+    #tab(tab, lang, repertoire) {
+        // A tab with no condition is a live one; a tab with one is live when
+        // its predicate says so, and until then it states the condition.
+        const live = tab.when === undefined || Boolean(tab.live?.(repertoire));
 
         const button = document.createElement('button');
         button.className = 'tab';
@@ -81,7 +95,7 @@ export class Tabs {
         if (live) {
             button.addEventListener('click', () => {
                 this.#current = tab.id;
-                this.render(lang);
+                this.render(lang, repertoire);
                 this.#onPick?.(tab.id);
             });
         }

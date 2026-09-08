@@ -70,6 +70,34 @@ const reset = (page) => page.evaluate(() => {
     window.chesslines.board.render(window.chesslines.game);
 });
 
+// Walk a line to its end. Adopt lives at `walk.done` and nowhere else (#42),
+// so every check about it has to get there first — and getting there is six
+// offers with a tick between them, not something worth retyping six times.
+const walkToEnd = (page, id) => page.evaluate(async (lineId) => {
+    const { OPENINGS, explain, showLine } = window.chesslines;
+    showLine(lineId);
+    for (const m of OPENINGS.find((o) => o.id === lineId).moves) {
+        explain.offer({ san: m.san });
+        await new Promise((r) => setTimeout(r, 5));
+    }
+    await new Promise((r) => setTimeout(r, 20));
+}, id);
+
+// Back to a repertoire with nothing adopted. Adopt's checks are about the
+// transitions out of that state — the control's first tap, Mine ungreying — so
+// each has to begin there rather than wherever the previous check left it.
+//
+// Through `remove` and the store rather than by clearing localStorage and
+// reloading: a reload would drop `?pause=0` handling into a fresh page mid-run
+// for every check that needs a clean slate, and `remove` is the app's own way
+// back — the cards stay, dormant, which is what #38 says un-adopting means.
+const forget = (page) => page.evaluate(() => {
+    const { repertoire, store } = window.chesslines;
+    for (const id of [...repertoire.lines]) repertoire.remove(id);
+    store.save(repertoire);
+    window.chesslines.showList();
+});
+
 const square = (page, name) => page.locator(`.square[data-square="${name}"]`);
 
 // Tap a square. Named for what the user does, since there is no drag by
@@ -1598,6 +1626,341 @@ const checks = [
             eq(await page.locator('.footer-message').isVisible(), false, 'the message survived a redraw');
         },
     },
+
+    // ─── Adopt (#48) ─────────────────────────────────────────────────────────
+    // The act itself: the moment a browsed opening becomes his. It lives at the
+    // end of a line and nowhere else (#42) — not in the list, where a row is
+    // not a moment and he could collect twelve openings without seeing one.
+
+    {
+        name: 'the adopt control is absent until the line ends',
+        async run(page) {
+            await forget(page);
+            await page.evaluate(() => window.chesslines.showLine('italian-game'));
+            eq(await page.locator('.adopt').isVisible(), false, 'adopt mid-line');
+            await walkToEnd(page, 'italian-game');
+            eq(await page.locator('.adopt').isVisible(), true, 'adopt at the end');
+            // Alongside Again, in the row of controls that is already there —
+            // not a new region arriving under the board.
+            eq(await page.locator('.explain-controls .adopt').count(), 1, 'adopt sits with the controls');
+            eq(await page.locator('.again').isVisible(), true, 'Again at the end');
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'the adopt control arrives plainly, with no animation',
+        async run(page) {
+            // A control that *appears* with fanfare at the end of a line is a
+            // reward for finishing, which is the mechanism the no-streak rule
+            // rules out. It is unhidden the same way Again is, and nothing in
+            // the stylesheet moves it.
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+            const drawn = await page.locator('.adopt').evaluate((el) => {
+                const style = getComputedStyle(el);
+                return {
+                    animation: style.animationName,
+                    transition: style.transitionProperty,
+                    opacity: style.opacity,
+                };
+            });
+            eq(drawn.animation, 'none', 'the adopt control is animated');
+            assert(
+                drawn.transition === 'none' || drawn.transition === 'all',
+                `the adopt control transitions on ${drawn.transition}`,
+            );
+            eq(drawn.opacity, '1', 'the adopt control fades in');
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'tapping adopt writes only the walked line, and says nothing else',
+        async run(page) {
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+            const before = await page.evaluate(() => ({
+                text: document.querySelector('.explain-text').textContent,
+                title: document.querySelector('.explain-title').textContent,
+            }));
+
+            await page.locator('.adopt').click();
+
+            const after = await page.evaluate(() => ({
+                lines: [...window.chesslines.repertoire.lines],
+                stored: JSON.parse(localStorage.getItem('repertoire')).lines,
+                text: document.querySelector('.explain-text').textContent,
+                title: document.querySelector('.explain-title').textContent,
+                onExplain: !document.getElementById('explain').hidden,
+            }));
+
+            eq(after.lines.join(','), 'italian-game', 'only the walked line is adopted');
+            eq(after.stored.join(','), 'italian-game', 'the adoption reaches storage');
+            // Nothing else happens. No screen change, no message — the button
+            // becoming a statement is the whole feedback (#42), and it is the
+            // only form of it that cannot lie, because a card can be shared.
+            eq(after.onExplain, true, 'adopting must not change screen');
+            eq(after.text, before.text, 'adopting must not change the move text');
+            eq(after.title, before.title, 'adopting must not change the title');
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'the adopt control becomes a statement, and stops being a target',
+        async run(page) {
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+            const offer = (await page.locator('.adopt').textContent()).trim();
+            await page.locator('.adopt').click();
+            const fact = (await page.locator('.adopt').textContent()).trim();
+
+            assert(offer !== fact, `the label did not change: "${offer}"`);
+            eq(await page.locator('.adopt').isDisabled(), true, 'the statement is still a target');
+            // A second tap has nothing to do, and must not be able to write
+            // anything: the state is a fact about the repertoire now.
+            eq(
+                (await page.evaluate(() => [...window.chesslines.repertoire.lines])).length,
+                1,
+                'adopting twice',
+            );
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'adopt hides on Again and returns as the statement',
+        async run(page) {
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+            await page.locator('.adopt').click();
+            const adopted = (await page.locator('.adopt').textContent()).trim();
+
+            await page.locator('.again').click();
+            eq(await page.locator('.adopt').isVisible(), false, 'adopt survives Again');
+
+            await walkToEnd(page, 'italian-game');
+            eq(await page.locator('.adopt').isVisible(), true, 'adopt returns at the end');
+            // Replaying does not undo adoption: it comes back as the statement,
+            // not as a fresh offer he could take twice.
+            eq((await page.locator('.adopt').textContent()).trim(), adopted, 'adopt forgot the adoption');
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'arriving at an already-adopted line, adopt is inert from the start',
+        async run(page) {
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+            await page.locator('.adopt').click();
+            const adopted = (await page.locator('.adopt').textContent()).trim();
+
+            // Leave the screen entirely and come back, which is the case a
+            // restart cannot cover: a fresh Walk on a line already in the
+            // repertoire.
+            await reset(page);
+            await walkToEnd(page, 'italian-game');
+            eq((await page.locator('.adopt').textContent()).trim(), adopted, 'adopt offers again');
+            eq(await page.locator('.adopt').isDisabled(), true, 'adopt is a target again');
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'adopting a second line sharing positions adds only the new cards',
+        async run(page) {
+            await forget(page);
+            // The Italian and the Ruy Lopez share 1. e4 e5 2. Nf3 — so the
+            // second adoption brings in only where they diverge, and the
+            // control says nothing about how many either way.
+            await walkToEnd(page, 'italian-game');
+            await page.locator('.adopt').click();
+            const first = await page.evaluate(() => window.chesslines.repertoire.cards.length);
+
+            await reset(page);
+            await walkToEnd(page, 'ruy-lopez');
+            const label = (await page.locator('.adopt').textContent()).trim();
+            await page.locator('.adopt').click();
+            const second = await page.evaluate(() => ({
+                cards: window.chesslines.repertoire.cards.length,
+                lines: [...window.chesslines.repertoire.lines].sort(),
+                shared: window.chesslines.repertoire.cards.filter((c) => c.lines.length > 1).length,
+            }));
+
+            eq(second.lines.join(','), 'italian-game,ruy-lopez', 'both lines adopted');
+            assert(second.shared > 0, 'the two lines must share at least one card');
+            // The arithmetic that proves "only the new ones": the total grew by
+            // fewer than the second line's own positions, because the shared
+            // ones were already there.
+            const own = await page.evaluate(
+                () => window.chesslines.store.cardsFor(
+                    window.chesslines.OPENINGS.find((o) => o.id === 'ruy-lopez'),
+                ).length,
+            );
+            assert(
+                second.cards - first < own,
+                `adopting the second line added ${second.cards - first} of its ${own} positions — nothing was shared`,
+            );
+            // And it said nothing about any of that, before or after.
+            assert(!/\d/.test(label), `the adopt control counted: "${label}"`);
+            const after = (await page.locator('.adopt').textContent()).trim();
+            assert(!/\d/.test(after), `the adopted statement counted: "${after}"`);
+            await reset(page);
+        },
+    },
+
+    {
+        name: 'the Openings list marks the adopted lines, and only those',
+        async run(page) {
+            await forget(page);
+            await reset(page);
+            eq(await page.locator('.line-mark').count(), 0, 'marks with nothing adopted');
+
+            await walkToEnd(page, 'italian-game');
+            await page.locator('.adopt').click();
+            await reset(page);
+
+            eq(await page.locator('.line-mark').count(), 1, 'one adopted line, one mark');
+            eq(
+                await page.locator('.line[data-id="italian-game"] .line-mark').count(),
+                1,
+                'the mark is on the adopted line',
+            );
+            // Un-adopted is the plain state, not a gap. A checkmark against
+            // nine empty rows is a scoreboard whether it is meant as one or not.
+            eq(
+                await page.locator('.line[data-id="ruy-lopez"] .line-mark').count(),
+                0,
+                'an un-adopted line is marked',
+            );
+            await forget(page);
+        },
+    },
+
+    {
+        name: 'nothing on the Openings list counts what has been adopted',
+        async run(page) {
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+            await page.locator('.adopt').click();
+            await reset(page);
+
+            // The no-streak rule where it is easiest to break: "1 of 12" beside
+            // the heading, a meter, or a number on the mark itself.
+            const text = await page.locator('#tab-content').textContent();
+            assert(!/\d+\s*(of|von|\/)\s*\d+/i.test(text), `the list counts: "${text}"`);
+            eq(await page.locator('#tab-content progress, #tab-content meter').count(), 0, 'meters in the list');
+            const mark = (await page.locator('.line-mark').textContent()).trim();
+            assert(!/\d/.test(mark), `the mark carries a number: "${mark}"`);
+            await forget(page);
+        },
+    },
+
+    {
+        name: 'Mine ungreys after the first adopt, and stays live',
+        async run(page) {
+            await forget(page);
+            await reset(page);
+            eq(await page.locator('.tab[data-tab="mine"]').isDisabled(), true, 'Mine before adopting');
+            eq(
+                await page.locator('.tab[data-tab="mine"] .tab-when').count(),
+                1,
+                'Mine states its condition before adopting',
+            );
+
+            await walkToEnd(page, 'italian-game');
+            await page.locator('.adopt').click();
+            await reset(page);
+
+            eq(await page.locator('.tab[data-tab="mine"]').isDisabled(), false, 'Mine after adopting');
+            // The condition line goes with it: a live tab stating how to open it
+            // is a route to where he already is.
+            eq(
+                await page.locator('.tab[data-tab="mine"] .tab-when').count(),
+                0,
+                'a live Mine still states its condition',
+            );
+            // Practise is not opened by adopting, and #47's two-conditions rule
+            // must survive Mine leaving: it also needs a card to come due.
+            eq(await page.locator('.tab[data-tab="practise"]').isDisabled(), true, 'Practise after adopting');
+            await forget(page);
+        },
+    },
+
+    {
+        name: 'nothing marks the moment Mine becomes available',
+        async run(page) {
+            // Announced rewards undermine; unexpected ones do not. He is not on
+            // the list screen when the first adopt happens — the tabs are absent
+            // while a line is walked (#28) — so the tab is simply usable next
+            // time he sees it. Nothing may say so.
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+
+            const before = await page.locator('#explain').textContent();
+            await page.locator('.adopt').click();
+            const after = await page.locator('#explain').textContent();
+
+            // The only thing on screen that may change is the control's own
+            // label. Strip it from both and the screen must be identical.
+            const strip = (text, label) => text.replace(label, '');
+            const offer = await page.evaluate(() => window.chesslines.t('explain.adopt', window.chesslines.lang));
+            const fact = await page.evaluate(() => window.chesslines.t('explain.adopted', window.chesslines.lang));
+            eq(strip(after, fact), strip(before, offer), 'something else changed when Mine came alive');
+
+            // And no alert, no dialog, no live region announcing it.
+            eq(await page.locator('#explain [role="alert"], #explain dialog').count(), 0, 'an announcement');
+            await forget(page);
+        },
+    },
+
+    {
+        name: 'the adopt control speaks the interface language',
+        async run(page) {
+            await forget(page);
+            await walkToEnd(page, 'italian-game');
+            const en = (await page.locator('.adopt').textContent()).trim();
+            await page.locator('#lang').click();
+            const de = (await page.locator('.adopt').textContent()).trim();
+            assert(en !== de, `the adopt control did not follow the language: "${en}"`);
+
+            // And the statement follows it too — switching after adopting must
+            // not leave the one sentence about his repertoire in English.
+            await page.locator('.adopt').click();
+            const adoptedDe = (await page.locator('.adopt').textContent()).trim();
+            await page.locator('#lang').click();
+            const adoptedEn = (await page.locator('.adopt').textContent()).trim();
+            assert(
+                adoptedDe !== adoptedEn,
+                `the adopted statement did not follow the language: "${adoptedDe}"`,
+            );
+            await forget(page);
+        },
+    },
+
+    {
+        name: 'the adopt control is a target a nine-year-old can hit',
+        async run(page) {
+            await forget(page);
+            const original = page.viewportSize();
+            await page.setViewportSize({ width: 375, height: 667 });
+            await walkToEnd(page, 'italian-game');
+
+            const box = await page.locator('.adopt').boundingBox();
+            assert(box.height >= 44, `the adopt control is ${box.height.toFixed(1)}px tall on a phone`);
+            // Four controls now share the row at the end of a line. None of them
+            // may be pushed off the screen by the fourth arriving.
+            const fits = await page.evaluate(
+                () => document.documentElement.scrollWidth <= window.innerWidth,
+            );
+            assert(fits, 'the end-of-line controls overflow a 375px screen');
+            await page.setViewportSize(original);
+            await forget(page);
+        },
+    },
+
 ];
 // ─── Run ─────────────────────────────────────────────────────────────────────
 // Every check runs against both engines. The desktop is not the target, and
@@ -1705,9 +2068,33 @@ async function runChecks(browser, engine) {
         // live and where they are most at risk: three tabs share 375px and two
         // of them carry a sentence. The mid-walk shot below cannot show them —
         // they are absent there by design (#47) — so this is their only look.
+        await forget(page);
         await reset(page);
         const list = join(SHOTS, 'app-phone-list.png');
         await page.screenshot({ path: list, fullPage: true });
+
+        // The end of a line, where Adopt lives (#48) — four controls sharing a
+        // 375px row, with the longest label in the app among them. The checks
+        // can see that they fit; only a person can see whether the row still
+        // reads as one thing rather than a wall of buttons.
+        await walkToEnd(page, 'italian-game');
+        await page.mouse.move(0, 0);
+        const end = join(SHOTS, 'app-phone-line-end.png');
+        await page.screenshot({ path: end, fullPage: true });
+
+        // And the same row once it is a statement, beside the marked list it
+        // produces. These are the only two views of the adopted state, and the
+        // rule they have to pass is one no assertion can make: that neither
+        // reads as a prize.
+        await page.locator('.adopt').click();
+        await page.mouse.move(0, 0);
+        const adopted = join(SHOTS, 'app-phone-adopted.png');
+        await page.screenshot({ path: adopted, fullPage: true });
+
+        await reset(page);
+        const marked = join(SHOTS, 'app-phone-list-adopted.png');
+        await page.screenshot({ path: marked, fullPage: true });
+        await forget(page);
 
         // Show the mode mid-walk rather than the bare board: the layout question
         // this app actually has is whether the board and the move text fit on a
@@ -1721,7 +2108,9 @@ async function runChecks(browser, engine) {
         await page.screenshot({ path: phone, fullPage: true });
         await page.setViewportSize(original);
 
-        const shots = [idle, selected, list, phone].map((f) => f.replace(ROOT, '')).join(', ');
+        const shots = [idle, selected, list, end, adopted, marked, phone]
+            .map((f) => f.replace(ROOT, ''))
+            .join(', ');
         console.log(`\n  screenshots → ${shots}`);
         console.log('                (look at them — it is not verified until you have)');
     }

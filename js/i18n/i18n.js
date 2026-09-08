@@ -36,6 +36,13 @@ const UI = {
         'explain.stop': 'Stop',
         'explain.start': 'Start',
         'explain.again': 'Play it again',
+        // The act, and then the fact. Tapping turns one into the other, and
+        // that change is the whole feedback (#42) — there is no message, no
+        // screen change and no count, because a card is shared and adopting a
+        // second line may add nothing new. A label that never counted anything
+        // cannot mis-promise.
+        'explain.adopt': 'Add to my openings',
+        'explain.adopted': 'In my openings',
         'explain.back': 'All openings',
         'explain.hintOff': 'Hint off',
         'explain.hintOn': 'Hint on',
@@ -47,6 +54,10 @@ const UI = {
         'list.title': 'Openings',
         'list.white': 'Playing White',
         'list.black': 'Playing Black',
+        // The mark on an adopted row. A fact and not a score: the same words
+        // whether one line is adopted or all twelve, and nothing at all on the
+        // rest (#42).
+        'list.mine': 'In my openings',
         'tabs.openings': 'Openings',
         'tabs.mine': 'Mine',
         'tabs.practise': 'Practise',
@@ -68,6 +79,8 @@ const UI = {
         'explain.stop': 'Anhalten',
         'explain.start': 'Los',
         'explain.again': 'Nochmal spielen',
+        'explain.adopt': 'Zu meinen Eröffnungen',
+        'explain.adopted': 'In meinen Eröffnungen',
         'explain.back': 'Alle Eröffnungen',
         'explain.hintOff': 'Tipp aus',
         'explain.hintOn': 'Tipp an',
@@ -79,6 +92,7 @@ const UI = {
         'list.title': 'Eröffnungen',
         'list.white': 'Mit Weiß',
         'list.black': 'Mit Schwarz',
+        'list.mine': 'In meinen Eröffnungen',
         'tabs.openings': 'Eröffnungen',
         'tabs.mine': 'Meine',
         'tabs.practise': 'Üben',

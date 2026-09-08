@@ -213,6 +213,18 @@
     line-height: 1.35;
 }
 
+/* The mark on an adopted opening. A fact, not a score: it says the same thing
+ * whether one line is adopted or all twelve, and there is nothing at all on the
+ * rest — a tick against nine empty rows is a scoreboard whether it is meant as
+ * one or not (#42). Muted and small, below the idea, so the row still leads with
+ * what the opening *is*: choosing what to walk next is the question this screen
+ * answers, and what he has already taken is the smaller half of it. */
+.line-mark {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+}
+
 /* An opening whose move texts are not written yet. Shown rather than hidden —
  * a list that fills in over time is a promise kept in front of him — but
  * plainly not ready. */
@@ -273,6 +285,10 @@
 
 .explain-controls {
     display: flex;
+    /* Wraps since #48: four controls share this row at the end of a line, and
+     * "Add to my openings" is longer than anything else in it. Adopt takes its
+     * own line on a phone rather than squeezing the three beside it. */
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
 }
@@ -315,8 +331,39 @@
     color: var(--fg);
 }
 
+/* The adopt control. Plain — no animation, no transition, no fade: a control
+ * that *arrives* at the end of a line is a reward for finishing, which is the
+ * mechanism the no-streak rule rules out. It is unhidden the way Again is and
+ * nothing here moves it. */
+.explain-controls .adopt {
+    /* Four controls now share the row, and on a 375px screen the labels are
+     * long — "Add to my openings" and "Zu meinen Eröffnungen" both wrap. Two
+     * lines here is right: the alternative is truncating the one control that
+     * has to say what it does. */
+    flex: 1 1 100%;
+    order: 1;
+    font-size: 0.9rem;
+}
+
+/* Once it is a statement it is not a target: no pointer, no hover, and the
+ * dashed border the app already uses for "shown, but not a thing to tap"
+ * (a greyed tab, an opening without its texts). It does not fade to 0.45 the
+ * way those do — this one is a fact about his repertoire, and a fact he can
+ * barely read is a worse answer than a quiet one. */
+.explain-controls .adopt:disabled {
+    cursor: default;
+    border-style: dashed;
+    color: var(--muted);
+}
+
 @media (min-width: 30rem) {
     .explain-controls button {
         flex: 0 0 auto;
+    }
+
+    /* Room for all four in one row, so it goes back beside the others. */
+    .explain-controls .adopt {
+        flex: 0 0 auto;
+        order: 0;
     }
 }

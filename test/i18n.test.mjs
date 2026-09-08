@@ -63,6 +63,7 @@ test('every tab and footer string exists in both languages', () => {
         'tabs.openings', 'tabs.mine', 'tabs.practise',
         'tabs.mineWhen', 'tabs.practiseWhen',
         'footer.export', 'footer.import', 'footer.importFailed',
+        'explain.adopt', 'explain.adopted', 'list.mine',
     ];
     for (const key of keys) {
         for (const lang of ['en', 'de']) {
@@ -94,6 +95,50 @@ test('a greyed tab names an action, never a clock', () => {
         const practise = t('tabs.practiseWhen', lang).toLowerCase();
         for (const clock of ['due', 'fällig', 'tomorrow', 'morgen', 'wait', 'warte']) {
             assert.ok(!practise.includes(clock), `practise condition mentions "${clock}" in ${lang}`);
+        }
+    }
+});
+
+test('the adopt control says where the line goes, in his own words', () => {
+    // "Add to my openings" / "In my openings" — the wording maps onto the Mine
+    // tab without translation (#42). "Adopt" is not a word Felix owns, "Save"
+    // sounds like a file, and "Learn this" promises a lesson that has not
+    // happened; each names something other than the place the line lands. So
+    // both labels have to carry the possessive and the word for an opening.
+    const MINE = { en: 'my', de: 'meine' };
+    for (const lang of ['en', 'de']) {
+        const openings = t('tabs.openings', lang).toLowerCase();
+        for (const key of ['explain.adopt', 'explain.adopted']) {
+            const label = t(key, lang).toLowerCase();
+            assert.ok(label.includes(MINE[lang]), `${key} is not possessive in ${lang}`);
+            assert.ok(
+                label.includes(openings.slice(0, -1)),
+                `${key} does not name the openings in ${lang}`,
+            );
+        }
+    }
+});
+
+test('the adopt control offers an act and then states a fact', () => {
+    // Tapping turns the button into a statement, and that change *is* the whole
+    // feedback (#42). Two labels that read the same would make the one piece of
+    // feedback the design has invisible.
+    for (const lang of ['en', 'de']) {
+        assert.notEqual(
+            t('explain.adopt', lang),
+            t('explain.adopted', lang),
+            `the two adopt labels are identical in ${lang}`,
+        );
+    }
+});
+
+test('nothing in the adopt control counts', () => {
+    // The control cannot promise "4 new positions": a card is shared, so
+    // adopting a second line may add nothing new (#48). A label that never
+    // counted anything cannot mis-promise.
+    for (const lang of ['en', 'de']) {
+        for (const key of ['explain.adopt', 'explain.adopted']) {
+            assert.ok(!/\d/.test(t(key, lang)), `${key} carries a number in ${lang}`);
         }
     }
 });

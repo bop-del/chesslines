@@ -46,10 +46,10 @@ const hint = (() => {
     }
 })();
 
-// The repertoire, read once at start-up. Nothing is on screen yet — Adopt and
-// Drill land later — so this is the state those modes will consume, kept whole
-// across a visit and written through the same try/catch as the preferences
-// above (ADR 0008).
+// The repertoire, read once at start-up and kept whole across a visit. Adopt
+// writes to this object and saves it; the list and the tabs read it on every
+// draw. One object rather than a copy per screen, so there is nothing to keep
+// in step (ADR 0008).
 const repertoire = store.load(OPENINGS);
 
 const listEl = document.getElementById('list-screen');
@@ -97,15 +97,28 @@ const explain = new Explain(explainEl, {
             // A private window refuses this. The switch still works for this visit.
         }
     },
+    // Adopting: the one act that writes to the repertoire (#48). It takes the
+    // walked line and nothing else — not the list's rows, not an opening's
+    // siblings — because he cannot consent to what he has not seen.
+    //
+    // The screen is not redrawn here, and that is the point: nothing happens
+    // beyond the control becoming a statement. The list and the tabs pick the
+    // change up whenever he next goes back, which is where Mine is quietly
+    // already live.
+    onAdopt(line) {
+        repertoire.adopt(line);
+        store.save(repertoire);
+    },
+    isAdopted: (line) => repertoire.lines.has(line.id),
 });
 
 const list = new List(listBody, {
     onPick: (id) => showLine(OPENINGS.find((o) => o.id === id)),
 });
 
-// Openings is the only live tab in this build, so picking one only ever lands
-// back where it started. The callback exists so Mine and Practise have somewhere
-// to arrive when they do.
+// Mine goes live on the first adopt, but has no screen of its own yet, so
+// picking a tab still only ever lands back where it started. The callback is
+// where Mine's screen arrives when it does.
 const tabs = new Tabs(tabsEl, { onPick: () => showList() });
 
 const footer = new Footer(footerEl, {
@@ -115,7 +128,7 @@ const footer = new Footer(footerEl, {
     // catches that — and it builds everything before applying any of it, so a
     // rejected file leaves the repertoire exactly as it was. Merging in place
     // rather than replacing means there is no second copy to keep in step with
-    // the one Adopt (#48) will write to.
+    // the one Adopt writes to.
     onImport(text) {
         // `parseFile` is the edge's own reader: it turns both ways a chosen file
         // can be wrong — unparseable, or parseable but not a repertoire — into
@@ -136,12 +149,16 @@ function showList() {
     game.reset();
     board.flip('w');
     board.render(game);
-    tabs.render(lang);
+    // Both read the repertoire as it is now. Coming back from a line he has
+    // just adopted is exactly when it has changed since this screen was last
+    // drawn — Mine is live and the row is marked, with nothing announcing
+    // either.
+    tabs.render(lang, repertoire);
     // Clear before rendering: a refused import's message is about the file he
     // just picked, and must not survive walking a line and coming back.
     footer.clear();
     footer.render(lang);
-    list.render(OPENINGS, lang);
+    list.render(OPENINGS, lang, repertoire);
 }
 
 function showLine(line) {

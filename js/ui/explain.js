@@ -18,6 +18,8 @@ export class Explain {
     #onBack;
     #pause;
     #onHint;
+    #onAdopt;
+    #isAdopted;
     #walk = null;
     #lang = 'en';
     #showing = false;
@@ -26,13 +28,19 @@ export class Explain {
     #hinting = true;
     #els = {};
 
-    constructor(root, { board, onBack, pause = 900, hint = true, onHint }) {
+    // `onAdopt` writes the line to the repertoire; `isAdopted` answers whether
+    // it is already there. Both are passed in rather than reached for: this
+    // module owns the moment, not the storage — and the moment is the whole of
+    // what Adopt is (#42).
+    constructor(root, { board, onBack, pause = 900, hint = true, onHint, onAdopt, isAdopted }) {
         this.#root = root;
         this.#board = board;
         this.#onBack = onBack;
         this.#pause = pause;
         this.#hinting = hint;
         this.#onHint = onHint;
+        this.#onAdopt = onAdopt;
+        this.#isAdopted = isAdopted ?? (() => false);
         this.#build();
     }
 
@@ -60,6 +68,12 @@ export class Explain {
         const controls = el('div', 'explain-controls', this.#root);
         this.#els.show = el('button', 'show', controls);
         this.#els.again = el('button', 'again', controls);
+        // The act itself. It lives here and nowhere else (#42): the end of a
+        // line is the moment he has just seen what the opening is, and a list
+        // row is not a moment. Unhidden the same plain way Again is — a control
+        // that *arrives* at the end of a line is a reward for finishing, which
+        // is the mechanism the no-streak rule rules out.
+        this.#els.adopt = el('button', 'adopt', controls);
         // Quieter than the two beside it, and styled like the language toggle:
         // at the end of a line there would otherwise be three equally loud
         // buttons on a 375px screen, and the board should stay the loudest
@@ -69,6 +83,7 @@ export class Explain {
         this.#els.back.addEventListener('click', () => this.#onBack());
         this.#els.show.addEventListener('click', () => this.#toggleShow());
         this.#els.again.addEventListener('click', () => this.#restart());
+        this.#els.adopt.addEventListener('click', () => this.#adopt());
         this.#els.hint.addEventListener('click', () => this.#toggleHint());
     }
 
@@ -141,6 +156,24 @@ export class Explain {
         this.#els.show.textContent = t(this.#showing ? 'explain.stop' : 'explain.showMe', this.#lang);
         this.#els.again.textContent = t('explain.again', this.#lang);
         this.#els.again.hidden = !this.#walk?.done;
+
+        // The act, or the fact. Tapping turns one into the other, and that
+        // change is the whole feedback (#42) — there is no message and no
+        // count, because a card can be shared and adopting a second line may
+        // add nothing new. A control that never counted anything cannot
+        // mis-promise.
+        //
+        // Shown exactly when Again is: at the end of the line, and not while he
+        // is mid-line. `#restart` runs through here, so replaying hides it and
+        // finishing again brings it back — as the statement, since replaying
+        // does not undo adoption.
+        const adopted = Boolean(this.#walk) && this.#isAdopted(this.#walk.line);
+        this.#els.adopt.textContent = t(adopted ? 'explain.adopted' : 'explain.adopt', this.#lang);
+        this.#els.adopt.hidden = !this.#walk?.done;
+        // A statement is not a target. Arriving at a line already adopted, it
+        // starts here — inert, and already reading as the fact.
+        this.#els.adopt.disabled = adopted;
+
         // The label is the action, not the state — "Hide the hint" while it is
         // showing. No `aria-pressed` beside it: the two would contradict each
         // other in both directions ("Hide the hint, pressed" while the hint is
@@ -193,6 +226,20 @@ export class Explain {
         const due = this.#walk?.next;
         const show = this.#hinting && due?.isOwn && !this.#showing;
         this.#board.showMove(show ? due.from : null, show ? due.to : null);
+    }
+
+    // The one act in the app that writes to the repertoire. Nothing else
+    // happens: no screen change, no message, no celebration — `#labels` redraws
+    // the control as the statement, and that is all the feedback there is.
+    //
+    // It is also where the Mine tab quietly becomes live. The tabs are not on
+    // screen at this moment (#28), so it is usable the next time he sees the
+    // list, with nothing marking the transition: announced rewards undermine,
+    // unexpected ones do not.
+    #adopt() {
+        if (!this.#walk?.done) return;
+        this.#onAdopt?.(this.#walk.line);
+        this.#labels();
     }
 
     // Switching it is his decision and nothing else's. The app measures no
